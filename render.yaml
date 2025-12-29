@@ -38,10 +38,10 @@ services:
         sync: false
 
   # Frontend - Static Site (DigiMark-New)
+  # Note: Static sites don't support region - Render handles CDN automatically
   - type: web
     name: digimark
     env: static
-    region: oregon
     rootDir: DigiMark-New
     buildCommand: npm install && npm run build
     staticPublishPath: dist
