@@ -1378,7 +1378,7 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                 console.log(`[Pollinations] Prompt: "${simplePrompt}" seed: ${seed}`);
                 const encodedPrompt = encodeURIComponent(simplePrompt);
                 // Simple URL - nologo and seed only (no width/height to avoid flux model)
-                return `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${seed}`;
+                return `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${seed}&model=turbo`;
             };
 
             // Run generations in parallel
