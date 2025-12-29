@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import puppeteer from 'puppeteer';
 import Groq from 'groq-sdk';
@@ -1341,7 +1341,7 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
 
                 try {
                     const response = await fetch(
-                        `https://api-inference.huggingface.co/models/${model}`,
+                        `https://router.huggingface.co/hf-inference/models/${model}`,
                         {
                             headers: {
                                 Authorization: `Bearer ${HF_API_KEY}`,
@@ -1369,10 +1369,15 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                 }
             };
 
-            const generateWithPollinations = (prompt) => {
+            const generateWithPollinations = (prompt, index) => {
                 console.log("[Pollinations] Generating fallback...");
-                const encodedPrompt = encodeURIComponent(prompt);
-                const seed = Math.floor(Math.random() * 1000);
+                // Use original user prompt + variation index for seed
+                // Keep it simple - no width/height to avoid triggering flux model
+                const seed = 1000 + index;
+                const simplePrompt = userPrompt.substring(0, 80).replace(/[^a-zA-Z0-9 ]/g, '').trim();
+                console.log(`[Pollinations] Prompt: "${simplePrompt}" seed: ${seed}`);
+                const encodedPrompt = encodeURIComponent(simplePrompt);
+                // Simple URL - nologo and seed only (no width/height to avoid flux model)
                 return `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${seed}`;
             };
 
@@ -1385,7 +1390,7 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                     console.warn(`HF Generation failed/timed out for index ${i}:`, hfError.message);
                     console.log("Falling back to Pollinations.ai...");
                     // Fallback to Pollinations which is instant (URL based)
-                    return generateWithPollinations(prompt);
+                    return generateWithPollinations(prompt, i);
                 }
             });
 
@@ -2351,4 +2356,6 @@ app.listen(PORT, '0.0.0.0', () => {
     const scheduler = new SchedulerService(db, publishPost);
     scheduler.start(60000); // Check every 60 seconds
 });
+
+
 
