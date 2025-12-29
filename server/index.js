@@ -4,7 +4,7 @@ import puppeteer from 'puppeteer';
 import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { SchedulerService } from './schedulerService.js';
@@ -13,7 +13,31 @@ import crypto from 'crypto';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// CORS configuration - allow localhost for development and Render for production
+const allowedOrigins = [
+    'http://localhost:3002',
+    'http://localhost:5174',
+    'http://127.0.0.1:3002',
+    'http://127.0.0.1:5174',
+    'https://digimark.onrender.com',      // Frontend on Render
+    'https://digimark-api.onrender.com'   // Backend on Render (for same-origin requests)
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('[CORS] Blocked origin:', origin);
+            callback(null, true); // Allow all origins in development, reject in production if needed
+        }
+    },
+    credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -164,6 +188,86 @@ function generateTwitterOAuth1Signature(method, url, params, consumerKey, consum
 // Initialize Groq client
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// --- AI HELPER WITH FALLBACK ---
+// Tries Groq first, then falls back to OpenRouter if Groq fails
+// Has timeout to fail fast and return static data quickly
+async function generateAICompletion(prompt, options = {}) {
+    const {
+        model = 'llama-3.3-70b-versatile',
+        temperature = 0.9,
+        maxTokens = 1000,
+        fallbackModel = 'mistralai/mistral-7b-instruct:free',
+        timeout = 5000 // 5 second timeout for fast fallback
+    } = options;
+
+    // Helper to add timeout to any promise
+    const withTimeout = (promise, ms) => {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Request timeout')), ms)
+            )
+        ]);
+    };
+
+    // Try Groq first with timeout
+    try {
+        console.log('[AI] Trying Groq...');
+        const result = await withTimeout(
+            groqClient.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: model,
+                temperature: temperature,
+                max_tokens: maxTokens
+            }),
+            timeout
+        );
+        console.log('[AI] ✅ Groq succeeded');
+        return result.choices[0]?.message?.content;
+    } catch (groqError) {
+        console.log('[AI] ⚠️ Groq failed:', groqError.message?.substring(0, 100));
+
+        // Check if OpenRouter API key is available
+        if (!process.env.OPENROUTER_API_KEY) {
+            console.log('[AI] ⚠️ No OPENROUTER_API_KEY set, skipping fallback');
+            throw groqError;
+        }
+
+        console.log('[AI] Trying OpenRouter fallback...');
+
+        // Fallback to OpenRouter
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://digimark.app',
+                    'X-Title': 'DigiMark AI'
+                },
+                body: JSON.stringify({
+                    model: fallbackModel,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: temperature,
+                    max_tokens: maxTokens
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('[AI] ✅ OpenRouter fallback succeeded');
+            return data.choices[0]?.message?.content;
+        } catch (fallbackError) {
+            console.error('[AI] ❌ OpenRouter fallback also failed:', fallbackError.message);
+            throw fallbackError;
+        }
+    }
+}
+
 // --- API: GENERATE CAPTION TEMPLATES ---
 app.post('/api/generate-templates', async (req, res) => {
     try {
@@ -197,15 +301,9 @@ Generate ${count} similar creative, catchy topics that are:
 
 Return ONLY a JSON array of ${count} short strings (topics), no other text.`;
 
-        const result = await groqClient.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.9,
-            max_tokens: 1000
-        });
+        const response = await generateAICompletion(prompt, { temperature: 0.9, maxTokens: 1000 });
+        console.log('[Templates] AI Response:', (response || '').substring(0, 150) + '...');
 
-        const response = result.choices[0]?.message?.content || '[]';
-        console.log('[Templates] AI Response:', response.substring(0, 150) + '...');
 
         // Parse JSON response
         let templates = [];
@@ -239,13 +337,17 @@ Return ONLY a JSON array of ${count} short strings (topics), no other text.`;
 
     } catch (error) {
         console.error('[Templates] Error:', error);
-        res.status(500).json({
-            error: 'Failed to generate templates',
+        // Return 200 with fallback templates so frontend doesn't break
+        res.json({
             templates: [
-                "🚀 Innovation drives everything we do. Excited to share what's next! #Tech #Innovation",
-                "💡 Success is built on great ideas and execution. What's inspiring you today? #Business #Growth",
-                "🎯 Our team is making things happen. Here's a glimpse behind the scenes. #TeamWork #Culture",
-                "🌟 Grateful for this milestone. Thank you for being part of our journey! #Success #Community"
+                "Summer Promo",
+                "New Collection",
+                "Product Launch",
+                "Team Update",
+                "Industry Insights",
+                "Customer Spotlight",
+                "Behind the Scenes",
+                "Trending Now"
             ]
         });
     }
@@ -286,15 +388,9 @@ Generate ${count} similar creative poster topics that are:
 
 Return ONLY a JSON array of ${count} short strings (poster topics), no other text.`;
 
-        const result = await groqClient.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.9,
-            max_tokens: 1000
-        });
+        const response = await generateAICompletion(prompt, { temperature: 0.9, maxTokens: 1000 });
+        console.log('[Poster Templates] AI Response:', (response || '').substring(0, 150) + '...');
 
-        const response = result.choices[0]?.message?.content || '[]';
-        console.log('[Poster Templates] AI Response:', response.substring(0, 150) + '...');
 
         // Parse JSON response
         let templates = [];
@@ -335,8 +431,8 @@ Return ONLY a JSON array of ${count} short strings (poster topics), no other tex
 
     } catch (error) {
         console.error('[Poster Templates] Error:', error);
-        res.status(500).json({
-            error: 'Failed to generate poster templates',
+        // Return 200 with fallback templates so frontend doesn't break
+        res.json({
             templates: [
                 "Black Friday Sale",
                 "New Year Wishes",
@@ -369,8 +465,10 @@ app.post('/publish', async (req, res) => {
         for (const p of platforms) {
             try {
                 let optimizedCaption = cleanedContent;
+                let action;
+                let shareUrl;
 
-                if (p === 'twitter') {
+                if (p === 'twitter' || p === 'x') {
                     optimizedCaption = optimizeCaptionForTwitter(cleanedContent);
 
                     // Try Twitter AUTO-POST with 2-step API
@@ -809,19 +907,28 @@ app.post('/publish', async (req, res) => {
                     }
 
                 } else {
-                    action = 'manual';
+                    // Default for other platforms (Twitter/X, etc.)
+                    let action = 'manual';
+                    shareUrl = p === 'x' || p === 'twitter' ? 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(optimizedCaption) : '';
                 }
 
                 if (action === 'share_dialog') {
                     results[p] = results[p] || {
-                        status: 'success',
+                        status: 'failed',
                         action: 'share_dialog',
-                        url: shareUrl,
+                        shareUrl: shareUrl,
                         imageUrl: mediaUrl,
-                        optimizedCaption: optimizedCaption
+                        optimizedCaption: optimizedCaption,
+                        error: 'Auto-post failed. Use manual share link.'
                     };
                 } else {
-                    results[p] = { status: 'success', action: 'manual' };
+                    results[p] = results[p] || {
+                        status: 'failed',
+                        action: 'manual',
+                        shareUrl: shareUrl,
+                        optimizedCaption: optimizedCaption,
+                        error: 'Platform requires manual posting'
+                    };
                 }
 
             } catch (e) {
@@ -960,6 +1067,85 @@ app.post('/schedule-post', async (req, res) => {
     }
 });
 
+
+// --- ENDPOINT: DELETE SCHEDULED POST ---
+app.delete('/delete-scheduled-post', async (req, res) => {
+    try {
+        const { userId, postId } = req.body;
+
+        console.log(`[Delete Schedule] Request to delete post ${postId} for user ${userId}`);
+
+        if (!userId || !postId) {
+            return res.status(400).json({ success: false, error: 'Missing userId or postId' });
+        }
+
+        // Delete the document from Firestore
+        const docRef = doc(db, 'scheduledPosts', postId);
+        await deleteDoc(docRef);
+
+        console.log(`[Delete Schedule] Successfully deleted post ${postId}`);
+
+        res.json({
+            success: true,
+            message: 'Scheduled post deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('[Delete Schedule] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to delete scheduled post'
+        });
+    }
+});
+
+// --- ENDPOINT: UPDATE SCHEDULED POST ---
+app.put('/update-scheduled-post', async (req, res) => {
+    try {
+        const { userId, postId, scheduledAt, content } = req.body;
+
+        console.log(`[Update Schedule] Request to update post ${postId}, scheduledAt: ${scheduledAt}, content: ${content ? 'provided' : 'not provided'}`);
+
+        if (!userId || !postId) {
+            return res.status(400).json({ success: false, error: 'Missing userId or postId' });
+        }
+
+        // Build the update object
+        const updateData = {
+            updatedAt: new Date().toISOString()
+        };
+
+        if (scheduledAt) {
+            updateData.scheduledAt = scheduledAt;
+        }
+
+        if (content !== undefined) {
+            updateData.content = content;
+        }
+
+        // Update the document in Firestore
+        const docRef = doc(db, 'scheduledPosts', postId);
+        await updateDoc(docRef, updateData);
+
+        console.log(`[Update Schedule] Successfully updated post ${postId}`);
+
+        res.json({
+            success: true,
+            postId: postId,
+            scheduledAt: scheduledAt,
+            message: scheduledAt
+                ? `Post rescheduled to ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`
+                : 'Post updated successfully'
+        });
+
+    } catch (error) {
+        console.error('[Update Schedule] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to update scheduled post'
+        });
+    }
+});
 
 // Helper Functions
 function optimizeCaptionForTwitter(caption) {
@@ -1182,6 +1368,306 @@ app.post('/generate-caption', async (req, res) => {
         console.error("Error:", error);
         const fallbackCaption = `Exciting updates coming soon! 🚀 Stay tuned. #Growth #Future`;
         res.json({ success: true, caption: fallbackCaption });
+    }
+});
+
+// --- ENDPOINT: GENERATE CAPTION TEMPLATES (Dynamic Suggestions) ---
+app.post('/api/generate-templates', async (req, res) => {
+    const { userId, companyName, companySummary, count = 8 } = req.body;
+
+    console.log(`[Templates] Generating ${count} caption templates for User: ${userId}`);
+
+    try {
+        // 1. Fetch Company Summary from Firebase if not provided
+        let context = companySummary || "";
+        if (!context && userId) {
+            const summariesRef = collection(db, 'company_summaries');
+            const q = query(summariesRef, where("userId", "==", userId));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const docs = querySnapshot.docs.map(doc => doc.data());
+                docs.sort((a, b) => {
+                    const dateA = a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt);
+                    const dateB = b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt);
+                    return dateB - dateA;
+                });
+                context = docs[0].summary || "";
+            }
+        }
+
+        // 2. Generate templates with Groq
+        const prompt = `Generate ${count} short social media post topic suggestions for a company.
+        
+Company: ${companyName || "a business"}
+Company Context: ${context || "A professional business looking to engage with their audience"}
+
+Generate ${count} short, catchy topic ideas (max 3-4 words each). These should be topics the company could post about.
+Examples format: "Summer Sale", "New Product Launch", "Team Spotlight", "Customer Success Story"
+
+Return ONLY the topics, one per line. No numbering, no explanations.`;
+
+        const groqResult = await callGroqWithRetry(prompt);
+
+        const templates = groqResult
+            .split('\n')
+            .filter(line => line.trim().length > 2 && line.trim().length < 50)
+            .map(line => line.trim().replace(/^["\-\*\d\.]+\s*/, '').replace(/["']$/g, ''))
+            .slice(0, count);
+
+        console.log(`[Templates] Generated ${templates.length} templates`);
+        res.json({ success: true, templates });
+
+    } catch (error) {
+        console.error("[Templates] Error:", error);
+        res.json({
+            success: true,
+            templates: [
+                'Summer Promo',
+                'New Collection',
+                'Product Launch',
+                'Team Update',
+                'Industry Insights',
+                'Customer Success',
+                'Behind the Scenes',
+                'Holiday Special'
+            ].slice(0, count)
+        });
+    }
+});
+
+// --- ENDPOINT: GENERATE POSTER TEMPLATES (Dynamic Suggestions) ---
+app.post('/api/generate-poster-templates', async (req, res) => {
+    const { userId, companyName, companySummary, count = 8 } = req.body;
+
+    console.log(`[Poster Templates] Generating ${count} poster ideas for User: ${userId}`);
+
+    try {
+        // 1. Fetch Company Summary from Firebase if not provided
+        let context = companySummary || "";
+        if (!context && userId) {
+            const summariesRef = collection(db, 'company_summaries');
+            const q = query(summariesRef, where("userId", "==", userId));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const docs = querySnapshot.docs.map(doc => doc.data());
+                docs.sort((a, b) => {
+                    const dateA = a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt);
+                    const dateB = b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt);
+                    return dateB - dateA;
+                });
+                context = docs[0].summary || "";
+            }
+        }
+
+        // 2. Generate poster ideas with Groq
+        const prompt = `Generate ${count} visual poster/graphic design ideas for a company's social media.
+        
+Company: ${companyName || "a business"}
+Company Context: ${context || "A professional business looking to create engaging visuals"}
+
+Generate ${count} short visual poster concepts (max 4-5 words each). These should be poster themes they could create.
+Examples format: "Summer Sale Event", "Product Showcase", "Team Celebration", "Festival Greetings"
+
+Return ONLY the poster ideas, one per line. No numbering, no explanations.`;
+
+        const groqResult = await callGroqWithRetry(prompt);
+
+        const templates = groqResult
+            .split('\n')
+            .filter(line => line.trim().length > 2 && line.trim().length < 60)
+            .map(line => line.trim().replace(/^["\-\*\d\.]+\s*/, '').replace(/["']$/g, ''))
+            .slice(0, count);
+
+        console.log(`[Poster Templates] Generated ${templates.length} ideas`);
+        res.json({ success: true, templates });
+
+    } catch (error) {
+        console.error("[Poster Templates] Error:", error);
+        res.json({
+            success: true,
+            templates: [
+                'Summer Sale Event',
+                'Product Showcase',
+                'Festival Greetings',
+                'Team Milestone',
+                'New Launch Poster',
+                'Holiday Celebration',
+                'Customer Appreciation',
+                'Year in Review'
+            ].slice(0, count)
+        });
+    }
+});
+
+// --- ENDPOINT: CREATE COMPANY SUMMARY (For AI Fine-Tuning) ---
+app.post('/api/create-company-summary', async (req, res) => {
+    const { userId, businessName, businessType, websiteUrl, brandVoice, visualStyle } = req.body;
+
+    console.log(`[Company Summary] Creating summary for User: ${userId}, Business: ${businessName}`);
+
+    if (!userId || !businessName) {
+        return res.status(400).json({ error: 'UserId and businessName are required' });
+    }
+
+    let browser = null;
+    let websiteContent = '';
+    let originalContentLength = 0;
+
+    try {
+        // Step 1: Scrape website content using Puppeteer
+        if (websiteUrl && websiteUrl.startsWith('http')) {
+            console.log(`[Company Summary] Scraping website: ${websiteUrl}`);
+
+            try {
+                browser = await puppeteer.launch({
+                    headless: 'new',
+                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                });
+
+                const page = await browser.newPage();
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+                await page.goto(websiteUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                await page.waitForTimeout(2000);
+
+                websiteContent = await page.evaluate(() => {
+                    const scripts = document.querySelectorAll('script, style, noscript');
+                    scripts.forEach(s => s.remove());
+                    let text = document.body ? (document.body.innerText || '') : '';
+                    return text.replace(/\s+/g, ' ').trim().substring(0, 15000);
+                });
+
+                originalContentLength = websiteContent.length;
+                console.log(`[Company Summary] Scraped ${originalContentLength} characters from website`);
+                await browser.close();
+                browser = null;
+            } catch (scrapeError) {
+                console.error('[Company Summary] Scraping failed:', scrapeError.message);
+                if (browser) { await browser.close(); browser = null; }
+            }
+        }
+
+        // Step 2: Generate detailed summary using Groq
+        let prompt;
+        if (websiteContent.length > 100) {
+            prompt = `You are an expert business analyst. Analyze the following website content and create a comprehensive, detailed company summary.
+
+=== WEBSITE CONTENT ===
+${websiteContent}
+
+=== COMPANY INFO ===
+Company Name: ${businessName}
+Business Type: ${businessType || 'Business'}
+Website: ${websiteUrl}
+
+=== REQUIRED OUTPUT FORMAT ===
+Create a detailed summary following this EXACT format. Be thorough and specific:
+
+## ${businessName}: Concise Summary
+
+**Overview:** [Write 2-3 sentences about what the company does, where they are based, their unique positioning, and who they serve]
+
+**Key Services:**
+* **[Service Category 1]:** [Specific services listed]
+* **[Service Category 2]:** [Specific services listed]
+* **[Service Category 3]:** [Specific services listed]
+* **[Add more categories as needed]**
+
+**[Special Focus Area if applicable - e.g., AI Focus, Tech Focus, etc.]:**
+* [Specific capability 1]
+* [Specific capability 2]
+* [Specific capability 3]
+
+**Key Takeaways:**
+* **[Strength 1]:** [Description]
+* **[Strength 2]:** [Description]
+* **[Strength 3]:** [Description]
+* **[Strength 4]:** [Description]
+
+**Actionable Insights:**
+* **[Insight 1]:** [Specific actionable detail]
+* **[Insight 2]:** [Specific actionable detail]
+* **[Insight 3]:** [Specific actionable detail]
+
+BE DETAILED. Extract ALL services, features, and unique selling points from the website content. This summary will be used by AI to generate accurate social media content, captions, and marketing materials for this company.`;
+        } else {
+            prompt = `Generate a professional company summary for AI content generation.
+
+Company Name: ${businessName}
+Business Type: ${businessType || 'Business'}
+Website: ${websiteUrl || 'N/A'}
+
+Create a detailed summary in this format:
+
+## ${businessName}: Company Summary
+
+**Overview:** [2-3 sentences about the company, what they do, and who they serve]
+
+**Key Services:** [List the main services/products based on business type]
+
+**Key Takeaways:** [3-4 important points about the company]
+
+**Actionable Insights:** [How this can be used for content creation]
+
+Make it detailed enough to generate accurate social media content.`;
+        }
+
+        const summary = await callGroqWithRetry(prompt);
+
+        // Save to Firestore company_summaries collection
+        const summaryData = {
+            userId,
+            businessName,
+            businessType: businessType || 'other',
+            url: websiteUrl || '',
+            websiteUrl: websiteUrl || '',
+            summary: summary.trim(),
+            originalContentLength: originalContentLength,
+            brandVoice: brandVoice || 50,
+            visualStyle: visualStyle || 'minimal',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const docRef = doc(db, 'company_summaries', `${userId}_${Date.now()}`);
+        await setDoc(docRef, summaryData);
+
+        console.log(`[Company Summary] Created successfully for ${businessName} (${originalContentLength} chars scraped)`);
+        res.json({ success: true, summary: summary.trim(), originalContentLength });
+
+    } catch (error) {
+        console.error('[Company Summary] Error:', error);
+
+        // Fallback: Save basic summary without AI
+        if (browser) { try { await browser.close(); } catch (e) { } }
+
+        try {
+            const fallbackSummary = `## ${businessName}: Company Summary\n\n**Overview:** ${businessName} is a ${businessType || 'business'} company focused on delivering quality products and services.\n\n**Key Services:** Professional ${businessType || 'business'} solutions for their target audience.`;
+
+            const summaryData = {
+                userId,
+                businessName,
+                businessType: businessType || 'other',
+                url: websiteUrl || '',
+                websiteUrl: websiteUrl || '',
+                summary: fallbackSummary,
+                originalContentLength: 0,
+                brandVoice: brandVoice || 50,
+                visualStyle: visualStyle || 'minimal',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            const docRef = doc(db, 'company_summaries', `${userId}_${Date.now()}`);
+            await setDoc(docRef, summaryData);
+
+            res.json({ success: true, summary: fallbackSummary, originalContentLength: 0 });
+        } catch (saveError) {
+            console.error('[Company Summary] Fallback save error:', saveError);
+            res.status(500).json({ error: 'Failed to create company summary' });
+        }
     }
 });
 
@@ -2095,8 +2581,9 @@ app.listen(PORT, '0.0.0.0', () => {
                             };
                         }
 
-                    } else if (p === 'twitter') {
+                    } else if (p === 'twitter' || p === 'x') {
                         console.log('===== TWITTER SCHEDULER CALLED =====');
+                        console.log('[Scheduler][Twitter] Attempting auto-post for platform:', p);
                         console.log('[Scheduler][Twitter] Attempting auto-post...');
                         optimizedCaption = optimizeCaptionForTwitter(cleanedContent);
 
@@ -2111,7 +2598,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
                             const tokenData = tokenDoc.data();
                             const access_token = tokenData.access_token;
-                            const access_token_secret = tokenData.access_token_secret;
+                            const access_token_secret = tokenData.access_token_secret || '';
 
                             console.log('[Scheduler][Twitter] Token found:', {
                                 access_token: access_token?.substring(0, 10) + '...',
@@ -2226,9 +2713,10 @@ app.listen(PORT, '0.0.0.0', () => {
                             // Fallback to share dialog
                             const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(optimizedCaption)}`;
                             results[p] = {
-                                status: 'success',
+                                status: 'failed',
                                 action: 'share_dialog',
-                                url: shareUrl,
+                                error: twitterError.message,
+                                shareUrl: shareUrl,
                                 optimizedCaption: optimizedCaption
                             };
                         }

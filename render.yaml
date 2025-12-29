@@ -1,0 +1,54 @@
+# Render Blueprint - Single Repo Deployment for DigiMark
+# This file configures both backend (Web Service) and frontend (Static Site)
+
+services:
+  # Backend - Node.js Web Service
+  - type: web
+    name: digimark-api
+    env: node
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIRECT_URI
+        sync: false  # Set manually in Render dashboard
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+  # Frontend - Static Site (DigiMark-New)
+  - type: web
+    name: digimark
+    env: static
+    region: oregon
+    rootDir: DigiMark-New
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    envVars:
+      - key: VITE_API_URL
+        value: https://digimark-api.onrender.com
