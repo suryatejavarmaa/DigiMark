@@ -259,7 +259,8 @@ export default function App() {
 
     // Redirect to OAuth
     const origin = encodeURIComponent(window.location.origin);
-    window.location.href = `http://127.0.0.1:5001/auth/${platform}?userId=${userId}&redirect_origin=${origin}`;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+    window.location.href = `${apiBase}/auth/${platform}?userId=${userId}&redirect_origin=${origin}`;
   };
 
   // Handle connect button click
@@ -352,7 +353,7 @@ export default function App() {
   // Create company summary for AI fine-tuning
   const createCompanySummary = async (uid: string, data: any) => {
     try {
-      const API_BASE = 'http://127.0.0.1:5001';
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
       // Generate summary using Groq via backend
       const response = await fetch(`${API_BASE}/api/create-company-summary`, {

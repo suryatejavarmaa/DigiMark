@@ -1,5 +1,5 @@
-// Backend API base URL - using the SAME server as original app
-const API_BASE = 'http://127.0.0.1:5001';
+// Backend API base URL - uses environment variable in production, localhost in development
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
 export interface GeneratedContent {
     text?: string;

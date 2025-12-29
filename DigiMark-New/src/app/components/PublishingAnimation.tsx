@@ -42,8 +42,9 @@ export function PublishingAnimation({ selectedPlatforms: propPlatforms, onNaviga
         try {
           // Map 'x' to 'twitter' for API
           const apiPlatform = platform === 'x' ? 'twitter' : platform;
+          const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
-          const response = await fetch('http://127.0.0.1:5001/publish', {
+          const response = await fetch(`${API_BASE}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -131,7 +132,8 @@ export function PublishingAnimation({ selectedPlatforms: propPlatforms, onNaviga
       const scheduledPostId = localStorage.getItem('scheduledPostId');
       if (scheduledPostId && allSuccess) {
         try {
-          const response = await fetch('http://127.0.0.1:5001/deleteScheduledPost', {
+          const API_BASE_DEL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+          const response = await fetch(`${API_BASE_DEL}/deleteScheduledPost`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
