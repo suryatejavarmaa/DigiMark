@@ -527,12 +527,23 @@ export default function App() {
     }
   };
 
+  // Handle navigation with history for Privacy Policy
+  const handleNavigation = (screen: string) => {
+    if (screen === 'privacy-policy') {
+      // Save return point if coming from these screens
+      if (['login-choice', 'profile-settings', 'dashboard'].includes(currentScreen)) {
+        setReturnScreen(currentScreen);
+      }
+    }
+    setCurrentScreen(screen);
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'splash':
         return <SplashScreen onComplete={handleSplashComplete} />;
       case 'login-choice':
-        return <LoginSignupChoice onNavigate={setCurrentScreen} />;
+        return <LoginSignupChoice onNavigate={handleNavigation} />;
       case 'onboarding-1a':
         return <OnboardingStep1A
           onNavigate={setCurrentScreen}
@@ -551,7 +562,7 @@ export default function App() {
         return <OnboardingStep3 onNavigate={setCurrentScreen} onComplete={handleStep3Complete} />;
       case 'dashboard':
         return <Dashboard
-          onNavigate={setCurrentScreen}
+          onNavigate={handleNavigation}
           userName={userProfile?.fullName}
           companyName={userProfile?.businessName}
           userId={userId}
@@ -742,7 +753,7 @@ export default function App() {
         return <PreviewEventPost onNavigate={setCurrentScreen} />;
       case 'profile-settings':
         return <ProfileSettings
-          onNavigate={setCurrentScreen}
+          onNavigate={handleNavigation}
           userProfile={userProfile}
           onLogout={handleLogout}
         />;
@@ -829,7 +840,20 @@ export default function App() {
       case 'notifications':
         return <NotificationsPage onNavigate={setCurrentScreen} userId={userId} />;
       case 'privacy-policy':
-        return <PrivacyPolicy onBack={() => setCurrentScreen('dashboard')} />;
+        return <PrivacyPolicy onBack={() => {
+          if (returnScreen) {
+            setCurrentScreen(returnScreen);
+          } else {
+            // Fallback: if logged in -> dashboard, else -> login
+            // Using existing userId state check logic
+            const cachedUserId = localStorage.getItem('digimark_user_id');
+            if (userId || cachedUserId) {
+              setCurrentScreen('dashboard');
+            } else {
+              setCurrentScreen('login-choice');
+            }
+          }
+        }} />;
       default:
         return <LoginSignupChoice onNavigate={setCurrentScreen} />;
     }
