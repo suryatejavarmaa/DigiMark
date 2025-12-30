@@ -1328,6 +1328,51 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
             let images = [];
             console.log("Generating images...");
 
+            // 🚀 SEGMIND API - Primary (Fast: 2-10 seconds, 100 free calls/day)
+            const generateWithSegmind = async (prompt, index) => {
+                const SEGMIND_API_KEY = process.env.SEGMIND_API_KEY;
+                if (!SEGMIND_API_KEY) {
+                    throw new Error("No Segmind API Key found");
+                }
+
+                console.log(`[Segmind] Generating variation ${index + 1}...`);
+
+                try {
+                    const response = await fetch('https://api.segmind.com/v1/sd1.5-txt2img', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': SEGMIND_API_KEY
+                        },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            negative_prompt: "blurry, low quality, distorted, deformed",
+                            samples: 1,
+                            scheduler: "UniPC",
+                            num_inference_steps: 20,
+                            guidance_scale: 7.5,
+                            seed: 100 + index, // Unique seed per variation
+                            img_width: 512,
+                            img_height: 512,
+                            base64: false // Get URL instead of base64
+                        }),
+                        signal: AbortSignal.timeout(25000) // 25 second timeout
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Segmind API Error: ${response.status} - ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    console.log(`[Segmind] ✅ Variation ${index + 1} generated successfully`);
+                    return data.image; // Direct image URL
+                } catch (error) {
+                    console.error(`[Segmind] Failed for variation ${index + 1}:`, error.message);
+                    throw error;
+                }
+            };
+
             const generateWithHF = async (prompt, index) => {
                 const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
                 if (!HF_API_KEY) throw new Error("No Hugging Face API Key found");
@@ -1381,16 +1426,31 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                 return `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${seed}&model=turbo`;
             };
 
-            // Run generations in parallel
+            // Run generations in parallel with triple-fallback: Segmind → Pollinations → HF
             const imagePromises = expandedPrompts.map(async (prompt, i) => {
+                // 🥇 Try Segmind first (fast: 2-10 seconds)
                 try {
-                    // Try HF first with timeout
-                    return await generateWithHF(prompt, i);
-                } catch (hfError) {
-                    console.warn(`HF Generation failed/timed out for index ${i}:`, hfError.message);
-                    console.log("Falling back to Pollinations.ai...");
-                    // Fallback to Pollinations which is instant (URL based)
-                    return generateWithPollinations(prompt, i);
+                    return await generateWithSegmind(prompt, i);
+                } catch (segmindError) {
+                    console.warn(`[Fallback Chain] Segmind failed for index ${i}:`, segmindError.message);
+
+                    // 🥈 Fallback to Pollinations (instant, always works)
+                    try {
+                        console.log(`[Fallback Chain] Trying Pollinations for index ${i}...`);
+                        return generateWithPollinations(prompt, i);
+                    } catch (pollinationsError) {
+                        console.warn(`[Fallback Chain] Pollinations failed for index ${i}:`, pollinationsError.message);
+
+                        // 🥉 Final fallback to Hugging Face
+                        try {
+                            console.log(`[Fallback Chain] Trying Hugging Face as last resort for index ${i}...`);
+                            return await generateWithHF(prompt, i);
+                        } catch (hfError) {
+                            console.error(`[Fallback Chain] All methods failed for index ${i}. Using emergency Pollinations URL.`);
+                            // Emergency fallback - direct Pollinations URL
+                            return generateWithPollinations(prompt, i);
+                        }
+                    }
                 }
             });
 

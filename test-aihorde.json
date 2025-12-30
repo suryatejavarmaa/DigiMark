@@ -1,0 +1,8 @@
+{
+    "prompt": "a beautiful sunset over mountains",
+    "params": {
+        "width": 512,
+        "height": 512,
+        "steps": 20
+    }
+}
