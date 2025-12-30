@@ -58,6 +58,7 @@ import { ExecutionSetupActions } from './components/ExecutionSetupActions';
 import { CampaignReady } from './components/CampaignReady';
 import { NotificationsPage } from './components/NotificationsPage';
 import { PageTransition } from './components/PageTransition';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 
 export default function App() {
   // Navigation state
@@ -121,6 +122,12 @@ export default function App() {
         // Go directly to dashboard
         setCurrentScreen('dashboard');
       }
+    }
+
+    // Check for direct URL paths (for privacy policy, terms, etc.)
+    const path = window.location.pathname;
+    if (path === '/privacy-policy' || path === '/privacy') {
+      setCurrentScreen('privacy-policy');
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -821,6 +828,8 @@ export default function App() {
         return <CampaignReady onNavigate={setCurrentScreen} />;
       case 'notifications':
         return <NotificationsPage onNavigate={setCurrentScreen} userId={userId} />;
+      case 'privacy-policy':
+        return <PrivacyPolicy onBack={() => setCurrentScreen('dashboard')} />;
       default:
         return <LoginSignupChoice onNavigate={setCurrentScreen} />;
     }
