@@ -1,4 +1,4 @@
-import { User, Building2, Mail, Phone, MapPin, Settings, HelpCircle, LogOut, ChevronRight, House, Megaphone, Calendar, TrendingUp } from 'lucide-react';
+import { User, Building2, Mail, Phone, MapPin, Settings, HelpCircle, LogOut, ChevronRight, House, Megaphone, Calendar, TrendingUp, Shield } from 'lucide-react';
 
 interface UserProfile {
   fullName?: string;
@@ -563,6 +563,63 @@ export function ProfileSettings({ onNavigate, userProfile, onLogout }: ProfileSe
                   }}
                 >
                   FAQs & tutorials
+                </div>
+              </div>
+              <ChevronRight size={20} style={{ color: '#9CA3AF' }} />
+            </button>
+
+            {/* Privacy Policy */}
+            <button
+              onClick={() => onNavigate('privacy-policy')}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: 'transparent',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#F9FAFB';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Shield size={20} style={{ color: '#8366FF' }} />
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    color: '#000000',
+                    marginBottom: '2px'
+                  }}
+                >
+                  Privacy Policy
+                </div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    color: '#6B7280'
+                  }}
+                >
+                  Data & privacy info
                 </div>
               </div>
               <ChevronRight size={20} style={{ color: '#9CA3AF' }} />

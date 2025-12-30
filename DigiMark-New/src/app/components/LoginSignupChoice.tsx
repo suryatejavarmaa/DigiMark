@@ -7,7 +7,7 @@ interface LoginSignupChoiceProps {
 
 export function LoginSignupChoice({ onNavigate }: LoginSignupChoiceProps) {
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col px-6 py-8"
       style={{
         background: '#FFFFFF',
@@ -15,7 +15,7 @@ export function LoginSignupChoice({ onNavigate }: LoginSignupChoiceProps) {
       }}
     >
       {/* Abstract 3D Illustration */}
-      <div 
+      <div
         className="flex-1 flex items-center justify-center mb-8"
         style={{
           overflow: 'hidden',
@@ -23,7 +23,7 @@ export function LoginSignupChoice({ onNavigate }: LoginSignupChoiceProps) {
           minHeight: '280px'
         }}
       >
-        <div 
+        <div
           className="w-full max-w-md"
           style={{
             overflow: 'hidden',
@@ -37,7 +37,7 @@ export function LoginSignupChoice({ onNavigate }: LoginSignupChoiceProps) {
       {/* Content */}
       <div className="space-y-6">
         {/* Hero Heading */}
-        <h1 
+        <h1
           style={{
             fontSize: '32px',
             fontWeight: 800,
@@ -179,10 +179,32 @@ export function LoginSignupChoice({ onNavigate }: LoginSignupChoiceProps) {
             }}
           >
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M20.25 4.5H3.75C3.33579 4.5 3 4.83579 3 5.25V18.75C3 19.1642 3.33579 19.5 3.75 19.5H20.25C20.6642 19.5 21 19.1642 21 18.75V5.25C21 4.83579 20.6642 4.5 20.25 4.5Z" stroke="#8366FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M3 7.5H21" stroke="#8366FF" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M20.25 4.5H3.75C3.33579 4.5 3 4.83579 3 5.25V18.75C3 19.1642 3.33579 19.5 3.75 19.5H20.25C20.6642 19.5 21 19.1642 21 18.75V5.25C21 4.83579 20.6642 4.5 20.25 4.5Z" stroke="#8366FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 7.5H21" stroke="#8366FF" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
+        </div>
+
+        {/* Privacy Policy Link */}
+        <div className="text-center pt-4">
+          <span style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'Outfit, sans-serif' }}>
+            By continuing, you agree to our{' '}
+            <button
+              onClick={() => onNavigate('privacy-policy')}
+              style={{
+                color: '#8366FF',
+                textDecoration: 'underline',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontFamily: 'Outfit, sans-serif',
+                padding: 0
+              }}
+            >
+              Privacy Policy
+            </button>
+          </span>
         </div>
       </div>
     </div>
