@@ -960,6 +960,44 @@ app.post('/schedule-post', async (req, res) => {
     }
 });
 
+// --- ENDPOINT 7: UPDATE SCHEDULED POST ---
+app.put('/update-scheduled-post', async (req, res) => {
+    const { postId, userId, content, scheduledAt, platforms } = req.body;
+
+    console.log(`[Update Schedule] Post ${postId}, User ${userId}`);
+
+    try {
+        if (!postId) {
+            return res.status(400).json({ success: false, error: 'Post ID is required' });
+        }
+
+        if (scheduledAt) {
+            const scheduleDate = new Date(scheduledAt);
+            const now = new Date();
+            if (scheduleDate <= now) {
+                return res.status(400).json({ success: false, error: 'Cannot schedule posts in the past' });
+            }
+        }
+
+        const updateData = { updatedAt: new Date().toISOString() };
+        if (content !== undefined) updateData.content = content;
+        if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt;
+        if (platforms !== undefined) updateData.platforms = platforms;
+
+        const postRef = doc(db, 'scheduledPosts', postId);
+        await updateDoc(postRef, updateData);
+
+        console.log(`[Update Schedule]  Post ${postId} updated`);
+
+        res.json({ success: true, postId, message: 'Scheduled post updated successfully' });
+    } catch (error) {
+        console.error('[Update Schedule] Error:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to update scheduled post' });
+    }
+});
+
+});
+
 
 // Helper Functions
 function optimizeCaptionForTwitter(caption) {
@@ -2416,6 +2454,7 @@ app.listen(PORT, '0.0.0.0', () => {
     const scheduler = new SchedulerService(db, publishPost);
     scheduler.start(60000); // Check every 60 seconds
 });
+
 
 
 
