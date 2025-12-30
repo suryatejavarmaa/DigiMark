@@ -4,7 +4,7 @@ import puppeteer from 'puppeteer';
 import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { SchedulerService } from './schedulerService.js';
