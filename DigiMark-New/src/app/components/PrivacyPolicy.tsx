@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Shield, Trash2, Mail, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Shield, Trash2, Mail } from 'lucide-react';
 
 interface PrivacyPolicyProps {
     onBack: () => void;
@@ -7,33 +7,77 @@ interface PrivacyPolicyProps {
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
     return (
-        <div className="min-h-screen bg-white text-gray-900">
+        <div
+            style={{
+                minHeight: '100vh',
+                background: '#FFFFFF',
+                fontFamily: 'Outfit, sans-serif'
+            }}
+        >
             {/* Header */}
-            <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+            <header
+                style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#FFFFFF',
+                    borderBottom: '1px solid #E5E7EB',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                }}
+            >
+                <div
+                    style={{
+                        maxWidth: '480px',
+                        margin: '0 auto',
+                        padding: '16px 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}
+                >
                     <button
                         onClick={onBack}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                        style={{
+                            padding: '8px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
                     >
-                        <ArrowLeft size={24} className="text-gray-700" />
+                        <ArrowLeft size={24} style={{ color: '#374151' }} />
                     </button>
-                    <div className="flex items-center gap-2">
-                        <Shield className="text-purple-600" size={24} />
-                        <h1 className="text-xl font-bold text-gray-900">Privacy Policy</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Shield size={24} style={{ color: '#8366FF' }} />
+                        <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                            Privacy Policy
+                        </h1>
                     </div>
                 </div>
             </header>
 
             {/* Content */}
-            <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-
+            <main
+                style={{
+                    maxWidth: '480px',
+                    margin: '0 auto',
+                    padding: '24px 20px 100px 20px'
+                }}
+            >
                 {/* Last Updated */}
-                <p className="text-sm text-gray-500">Last updated: December 30, 2025</p>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '24px' }}>
+                    Last updated: December 30, 2025
+                </p>
 
                 {/* Introduction */}
-                <section className="space-y-4">
-                    <h2 className="text-2xl font-bold text-purple-600">Welcome to DigiMark</h2>
-                    <p className="text-gray-600 leading-relaxed">
+                <section style={{ marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#8366FF', marginBottom: '12px' }}>
+                        Welcome to DigiMark
+                    </h2>
+                    <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: 1.6 }}>
                         DigiMark ("we", "our", or "us") operates the DigiMark Social Post application.
                         This page informs you of our policies regarding the collection, use, and disclosure
                         of personal information when you use our Service.
@@ -41,191 +85,278 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 </section>
 
                 {/* Information We Collect */}
-                <section className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '16px' }}>
                         📊 Information We Collect
                     </h2>
-                    <div className="space-y-3 text-gray-600">
-                        <div className="pl-4 border-l-2 border-purple-500">
-                            <h3 className="font-semibold text-gray-900">Account Information</h3>
-                            <p>Email address, name, and profile picture from your social media accounts when you connect them.</p>
-                        </div>
-                        <div className="pl-4 border-l-2 border-purple-500">
-                            <h3 className="font-semibold text-gray-900">Social Media Access Tokens</h3>
-                            <p>OAuth tokens from LinkedIn, Twitter/X, Facebook, and Instagram to publish posts on your behalf.</p>
-                        </div>
-                        <div className="pl-4 border-l-2 border-purple-500">
-                            <h3 className="font-semibold text-gray-900">User-Generated Content</h3>
-                            <p>Posts, captions, AI-generated images, video reels, and content templates you create.</p>
-                        </div>
-                        <div className="pl-4 border-l-2 border-purple-500">
-                            <h3 className="font-semibold text-gray-900">Business Information</h3>
-                            <p>Company name, website URL, and business category for AI content personalization.</p>
-                        </div>
-                    </div>
-                </section>
-
-                {/* How We Use Your Information */}
-                <section className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
-                        🎯 How We Use Your Information
-                    </h2>
-                    <ul className="space-y-2 text-gray-600">
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Publish and schedule posts to your connected social media accounts</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Generate AI-powered content, images, and video reels tailored to your brand</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Store your scheduled posts and publishing history</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Provide customer support and respond to your requests</span>
-                        </li>
-                    </ul>
-                </section>
-
-                {/* Third-Party Services */}
-                <section className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
-                        🔗 Third-Party Services
-                    </h2>
-                    <p className="text-gray-600 mb-4">
-                        We share necessary data with the following services to provide our functionality:
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {['Facebook/Meta', 'LinkedIn', 'Twitter/X', 'Instagram', 'Google Firebase', 'Groq AI', 'Segmind AI'].map((service) => (
-                            <div key={service} className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-sm text-center text-purple-700 font-medium">
-                                {service}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {[
+                            { title: 'Account Information', desc: 'Email address, name, and profile picture from your social media accounts.' },
+                            { title: 'Social Media Tokens', desc: 'OAuth tokens from LinkedIn, Twitter/X, Facebook, and Instagram to publish posts.' },
+                            { title: 'User Content', desc: 'Posts, captions, AI-generated images, video reels, and templates you create.' },
+                            { title: 'Business Information', desc: 'Company name, website URL, and business category for AI personalization.' }
+                        ].map((item, i) => (
+                            <div key={i} style={{ paddingLeft: '12px', borderLeft: '3px solid #8366FF' }}>
+                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '2px' }}>
+                                    {item.title}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#6B7280' }}>
+                                    {item.desc}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </section>
 
+                {/* How We Use */}
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '16px' }}>
+                        🎯 How We Use Your Information
+                    </h2>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                            'Publish and schedule posts to your social media accounts',
+                            'Generate AI-powered content, images, and video reels',
+                            'Store your scheduled posts and publishing history',
+                            'Provide customer support and respond to requests'
+                        ].map((item, i) => (
+                            <li key={i} style={{ fontSize: '13px', color: '#6B7280', display: 'flex', gap: '8px' }}>
+                                <span style={{ color: '#8366FF' }}>•</span>
+                                {item}
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+
+                {/* Third-Party Services */}
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '16px' }}>
+                        🔗 Third-Party Services
+                    </h2>
+                    <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '12px' }}>
+                        We share data with the following services:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {['Facebook/Meta', 'LinkedIn', 'Twitter/X', 'Instagram', 'Firebase', 'Groq AI', 'Segmind'].map((service) => (
+                            <span
+                                key={service}
+                                style={{
+                                    background: '#EDE9FE',
+                                    color: '#8366FF',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    padding: '6px 12px',
+                                    borderRadius: '20px'
+                                }}
+                            >
+                                {service}
+                            </span>
+                        ))}
+                    </div>
+                </section>
+
                 {/* Data Storage */}
-                <section className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '12px' }}>
                         🔒 Data Storage & Security
                     </h2>
-                    <p className="text-gray-600">
-                        Your data is securely stored on Google Firebase Cloud infrastructure.
-                        We use industry-standard encryption and security measures to protect your information.
+                    <p style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.6 }}>
+                        Your data is securely stored on Google Firebase Cloud infrastructure with industry-standard encryption.
                         Data is retained until you request deletion.
                     </p>
                 </section>
 
-                {/* Data Deletion - IMPORTANT SECTION */}
-                <section id="data-deletion" className="space-y-4 bg-red-50 rounded-2xl p-6 border border-red-200">
-                    <h2 className="text-xl font-bold text-red-600 flex items-center gap-2">
-                        <Trash2 size={24} />
+                {/* Data Deletion */}
+                <section
+                    id="data-deletion"
+                    style={{
+                        marginBottom: '20px',
+                        background: '#FEF2F2',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #FECACA'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Trash2 size={20} />
                         Data Deletion Request
                     </h2>
-                    <p className="text-gray-600">
-                        You have the right to request deletion of all your personal data from our systems.
+                    <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '16px' }}>
+                        You can request deletion of all your personal data:
                     </p>
-                    <div className="bg-white rounded-xl p-4 space-y-3 border border-red-200">
-                        <h3 className="font-semibold text-gray-900">How to Delete Your Data:</h3>
-                        <ol className="list-decimal list-inside text-gray-600 space-y-2">
-                            <li>Disconnect all social media accounts from DigiMark settings</li>
-                            <li>Send an email to the address below with subject: <strong>"Data Deletion Request"</strong></li>
-                            <li>Include your registered email address in the request</li>
-                            <li>We will process your request and delete all data within <strong>30 days</strong></li>
+                    <div
+                        style={{
+                            background: '#FFFFFF',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            marginBottom: '16px',
+                            border: '1px solid #FECACA'
+                        }}
+                    >
+                        <ol style={{ margin: 0, padding: '0 0 0 16px', fontSize: '13px', color: '#374151', lineHeight: 1.8 }}>
+                            <li>Disconnect all social media from DigiMark</li>
+                            <li>Email us with subject: <strong>"Data Deletion Request"</strong></li>
+                            <li>Include your registered email address</li>
+                            <li>We'll delete all data within <strong>30 days</strong></li>
                         </ol>
                     </div>
                     <a
                         href="mailto:jaivarma89@gmail.com?subject=Data%20Deletion%20Request%20-%20DigiMark"
-                        className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full font-semibold transition-colors"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: '#DC2626',
+                            color: '#FFFFFF',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            textDecoration: 'none'
+                        }}
                     >
-                        <Mail size={20} />
+                        <Mail size={18} />
                         Request Data Deletion
                     </a>
                 </section>
 
                 {/* Your Rights */}
-                <section className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '16px' }}>
                         ⚖️ Your Rights
                     </h2>
-                    <ul className="space-y-2 text-gray-600">
-                        <li className="flex items-start gap-2">
-                            <span className="text-green-600 mt-1">✓</span>
-                            <span><strong>Access:</strong> Request a copy of your personal data</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-green-600 mt-1">✓</span>
-                            <span><strong>Rectification:</strong> Update or correct your information</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-green-600 mt-1">✓</span>
-                            <span><strong>Deletion:</strong> Request removal of your data</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-green-600 mt-1">✓</span>
-                            <span><strong>Revoke Access:</strong> Disconnect social media accounts at any time</span>
-                        </li>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                            { label: 'Access', desc: 'Request a copy of your personal data' },
+                            { label: 'Rectification', desc: 'Update or correct your information' },
+                            { label: 'Deletion', desc: 'Request removal of your data' },
+                            { label: 'Revoke', desc: 'Disconnect social accounts anytime' }
+                        ].map((item, i) => (
+                            <li key={i} style={{ fontSize: '13px', color: '#6B7280', display: 'flex', gap: '8px' }}>
+                                <span style={{ color: '#10B981' }}>✓</span>
+                                <span><strong>{item.label}:</strong> {item.desc}</span>
+                            </li>
+                        ))}
                     </ul>
                 </section>
 
                 {/* Contact Us */}
-                <section className="space-y-4 bg-purple-50 rounded-2xl p-6 border border-purple-200">
-                    <h2 className="text-xl font-bold text-purple-600 flex items-center gap-2">
+                <section
+                    style={{
+                        marginBottom: '20px',
+                        background: '#EDE9FE',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #DDD6FE'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '12px' }}>
                         📧 Contact Us
                     </h2>
-                    <p className="text-gray-600">
-                        If you have any questions about this Privacy Policy, please contact us:
+                    <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '16px' }}>
+                        Questions about this Privacy Policy?
                     </p>
-                    <div className="flex flex-wrap gap-4">
-                        <a
-                            href="mailto:jaivarma89@gmail.com"
-                            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full font-semibold transition-colors"
-                        >
-                            <Mail size={20} />
-                            jaivarma89@gmail.com
-                        </a>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4">
-                        DigiMark Social Post<br />
-                        By Digital Shout
+                    <a
+                        href="mailto:jaivarma89@gmail.com"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: '#8366FF',
+                            color: '#FFFFFF',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            textDecoration: 'none'
+                        }}
+                    >
+                        <Mail size={18} />
+                        jaivarma89@gmail.com
+                    </a>
+                    <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '16px' }}>
+                        DigiMark Social Post • By Bristle Tech
                     </p>
                 </section>
 
                 {/* Terms of Service */}
-                <section id="terms" className="space-y-4 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <h2 className="text-xl font-bold text-purple-600">📜 Terms of Service</h2>
-                    <p className="text-gray-600">
+                <section
+                    id="terms"
+                    style={{
+                        marginBottom: '20px',
+                        background: '#F9FAFB',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #E5E7EB'
+                    }}
+                >
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#8366FF', marginBottom: '12px' }}>
+                        📜 Terms of Service
+                    </h2>
+                    <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '12px' }}>
                         By using DigiMark, you agree to:
                     </p>
-                    <ul className="space-y-2 text-gray-600">
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Use the service only for lawful purposes</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Not abuse the AI content generation features</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Comply with each social platform's terms of service</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <span className="text-purple-600 mt-1">•</span>
-                            <span>Not use the service for spam, harassment, or illegal content</span>
-                        </li>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {[
+                            'Use the service only for lawful purposes',
+                            'Not abuse AI content generation features',
+                            'Comply with each platform\'s terms of service',
+                            'Not use the service for spam or harassment'
+                        ].map((item, i) => (
+                            <li key={i} style={{ fontSize: '13px', color: '#6B7280', display: 'flex', gap: '8px' }}>
+                                <span style={{ color: '#8366FF' }}>•</span>
+                                {item}
+                            </li>
+                        ))}
                     </ul>
                 </section>
 
                 {/* Footer */}
-                <footer className="text-center text-gray-500 text-sm py-8 border-t border-gray-200">
-                    <p>© 2025 DigiMark by Digital Shout. All rights reserved.</p>
-                    <p className="mt-2">This privacy policy was last updated on December 30, 2025.</p>
+                <footer style={{ textAlign: 'center', paddingTop: '24px', borderTop: '1px solid #E5E7EB' }}>
+                    <p style={{ fontSize: '12px', color: '#9CA3AF', margin: 0 }}>
+                        © 2025 DigiMark by Bristle Tech. All rights reserved.
+                    </p>
                 </footer>
-
             </main>
         </div>
     );
