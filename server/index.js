@@ -995,7 +995,6 @@ app.put('/update-scheduled-post', async (req, res) => {
         res.status(500).json({ success: false, error: error.message || 'Failed to update scheduled post' });
     }
 });
-});
 
 
 // Helper Functions
