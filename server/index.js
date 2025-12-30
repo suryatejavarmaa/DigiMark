@@ -1338,7 +1338,7 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                 console.log(`[Segmind] Generating variation ${index + 1}...`);
 
                 try {
-                    const response = await fetch('https://api.segmind.com/v1/sd1.5-txt2img', {
+                    const response = await fetch('https://api.segmind.com/v1/sdxl1.0-txt2img', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
