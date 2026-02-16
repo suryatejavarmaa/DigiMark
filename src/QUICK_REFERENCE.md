@@ -462,4 +462,4 @@ import { useState, useEffect } from 'react';
 
 ---
 
-This quick reference contains all the patterns you need to maintain consistency across the Digi Mark app! 🎨✨
+This quick reference contains all the patterns you need to maintain consistency across the DigiDhanda app! 🎨✨

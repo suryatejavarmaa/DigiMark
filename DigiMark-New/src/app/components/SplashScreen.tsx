@@ -14,7 +14,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   }, [onComplete]);
 
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col items-center justify-center px-6"
       style={{
         background: 'linear-gradient(to bottom, #FFFFFF, #EDE9FE)',
@@ -24,14 +24,14 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       {/* Glowing Hexagonal Logo with Animations */}
       <div className="relative mb-8">
         {/* Pulsing Glow Effect */}
-        <div 
+        <div
           className="absolute inset-0 blur-3xl opacity-60"
-          style={{ 
+          style={{
             background: '#8366FF',
             animation: 'pulse 2s ease-in-out infinite'
           }}
         />
-        
+
         {/* Rotating Outer Ring */}
         <div
           style={{
@@ -46,19 +46,19 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             animation: 'rotate 3s linear infinite'
           }}
         />
-        
+
         {/* Animated Hexagon Icon */}
-        <Hexagon 
+        <Hexagon
           className="relative"
-          size={120} 
+          size={120}
           strokeWidth={3}
-          style={{ 
+          style={{
             color: '#8366FF',
             filter: 'drop-shadow(0 0 40px rgba(131, 102, 255, 0.8))',
             animation: 'float 3s ease-in-out infinite, glow 2s ease-in-out infinite'
           }}
         />
-        
+
         {/* Orbiting Dots */}
         <div
           style={{
@@ -90,7 +90,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       </div>
 
       {/* App Name with Fade In */}
-      <h1 
+      <h1
         className="mb-32"
         style={{
           fontSize: '32px',
@@ -101,19 +101,19 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           animation: 'fadeInUp 1s ease-out'
         }}
       >
-        Digi Mark
+        DigiDhanda
       </h1>
 
       {/* Progress Bar */}
       <div className="w-full max-w-xs">
-        <div 
+        <div
           className="h-1.5 overflow-hidden"
           style={{
             background: '#EDE9FE',
             borderRadius: '8px'
           }}
         >
-          <div 
+          <div
             className="h-full animate-[loading_2s_ease-in-out_infinite]"
             style={{
               background: 'linear-gradient(90deg, #8366FF, #A78BFA, #8366FF)',
@@ -123,7 +123,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             }}
           />
         </div>
-        <p 
+        <p
           className="mt-3 text-center"
           style={{
             fontSize: '14px',

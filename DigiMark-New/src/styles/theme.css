@@ -40,7 +40,7 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   
-  /* DigiMark Design Tokens */
+  /* DigiDhanda Design Tokens */
   --digimark-primary: #8366FF;
   --digimark-background: #FFFFFF;
   --digimark-text-primary: #000000;
@@ -66,7 +66,7 @@
   scrollbar-width: none;
 }
 
-/* Global DigiMark Slim Scrollbar Styling */
+/* Global DigiDhanda Slim Scrollbar Styling */
 * {
   scrollbar-width: thin;
   scrollbar-color: #D1D5DB transparent;
@@ -253,7 +253,7 @@
     line-height: 1.5;
   }
 
-  /* DigiMark Button Press Animation */
+  /* DigiDhanda Button Press Animation */
   button:active {
     transform: scale(0.96);
     transition: transform 0.1s ease;

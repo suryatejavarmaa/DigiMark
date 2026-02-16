@@ -137,9 +137,10 @@ export default function App() {
 
     // Check for direct URL paths (for privacy policy, terms, etc.)
     const path = window.location.pathname;
-    if (path === '/privacy-policy' || path === '/privacy') {
+    if (path === '/privacy-policy' || path === '/privacy' || path === '/terms' || path === '/data-deletion') {
       setCurrentScreen('privacy-policy');
     }
+
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {

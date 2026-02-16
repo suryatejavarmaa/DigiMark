@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide will walk you through getting Meta App Review approval to enable Facebook Page auto-posting for all users of your DigiMark app.
+This guide will walk you through getting Meta App Review approval to enable Facebook Page auto-posting for all users of your DigiDhanda app.
 
 **Timeline:** 2-5 business days (after submission)  
 **Cost:** Free  
@@ -28,7 +28,7 @@ Before starting, ensure you have:
 1. Visit: https://developers.facebook.com/apps/
 2. Click **"Create App"** (if you don't have one)
 3. Select **"Business"** as the app type
-4. Enter app name: "DigiMark"
+4. Enter app name: "DigiDhanda"
 5. Enter contact email
 
 ### 2.2 Add Facebook Login Product
@@ -102,11 +102,11 @@ Example response:
 ### 4.3 For Each Permission, Provide:
 
 1. **Use Case Description:**
-   > "DigiMark allows business owners to create AI-generated content and publish it to their Facebook Pages. Users connect their Facebook account, select a Page they manage, and the app posts photos with captions to that Page on their behalf."
+   > "DigiDhanda allows business owners to create AI-generated content and publish it to their Facebook Pages. Users connect their Facebook account, select a Page they manage, and the app posts photos with captions to that Page on their behalf."
 
 2. **Step-by-Step Instructions:**
    ```
-   1. Log in to DigiMark at https://your-domain.com
+   1. Log in to DigiDhanda at https://your-domain.com
    2. Click "Create Post" 
    3. Enter a topic and generate AI content
    4. Click "Connect Facebook" 
@@ -185,7 +185,7 @@ Fill in all fields:
 
 | Field | Value |
 |-------|-------|
-| Display Name | DigiMark |
+| Display Name | DigiDhanda |
 | App Domains | your-domain.com |
 | Privacy Policy URL | https://your-domain.com/privacy |
 | Terms of Service URL | https://your-domain.com/terms |

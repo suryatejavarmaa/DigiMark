@@ -1,8 +1,8 @@
-# DigiMark - LinkedIn App Review Submission
+# DigiDhanda - LinkedIn App Review Submission
 
 ## App Overview
 
-**App Name:** DigiMark  
+**App Name:** DigiDhanda  
 **Category:** Social Media Management / Marketing Tool  
 **Target Users:** Small businesses, marketers, content creators
 
@@ -10,7 +10,7 @@
 
 ## Use Case Description
 
-> DigiMark is an AI-powered social media management platform that helps businesses create, schedule, and publish professional content across multiple social platforms.
+> DigiDhanda is an AI-powered social media management platform that helps businesses create, schedule, and publish professional content across multiple social platforms.
 >
 > **LinkedIn Integration Use Case:**  
 > Users connect their LinkedIn account via OAuth to enable seamless posting of AI-generated content directly to their LinkedIn feed. The app:
@@ -38,7 +38,7 @@
 **Duration:** 2-3 minutes
 
 ### Scene 1: Introduction (15 sec)
-- Show DigiMark logo and app name
+- Show DigiDhanda logo and app name
 - Brief text: "AI-powered social media management"
 
 ### Scene 2: User Login/Onboarding (20 sec)
@@ -115,11 +115,11 @@
 
 ## Contact Information
 
-**Developer:** [Your Name]  
-**Email:** [Your Email]  
-**Website:** [Your Website URL]  
-**Privacy Policy:** [Privacy Policy URL]  
-**Terms of Service:** [Terms of Service URL]
+**Contact email:** Bhargavsai.9290@gmail.com
+**Website URL:** https://digidhanda.onrender.com
+**Privacy Policy URL:** https://digidhanda.onrender.com/privacy-policy
+**Terms of Service URL:** https://digidhanda.onrender.com/privacy-policy#terms
+
 
 ---
 

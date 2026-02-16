@@ -1,4 +1,4 @@
-# DigiMark - Render Deployment Guide
+# DigiDhanda - Render Deployment Guide
 
 Yes! You can deploy frontend and backend **separately** on Render. Here's the complete step-by-step guide.
 
@@ -8,8 +8,8 @@ Yes! You can deploy frontend and backend **separately** on Render. Here's the co
 
 | Component | Render Service Type | URL Example |
 |-----------|-------------------|-------------|
-| Backend (server) | **Web Service** | `https://digimark-api.onrender.com` |
-| Frontend (app) | **Static Site** | `https://digimark.onrender.com` |
+| Backend (server) | **Web Service** | `https://digidhanda-api.onrender.com` |
+| Frontend (app) | **Static Site** | `https://digidhanda.onrender.com` |
 
 ---
 
@@ -33,7 +33,7 @@ Create this file in your project root:
 # render.yaml
 services:
   - type: web
-    name: digimark-api
+    name: digidhanda-api
     env: node
     rootDir: server
     buildCommand: npm install
@@ -51,14 +51,14 @@ services:
 
 ### Step 1.4: Connect GitHub Repository
 
-1. Select your DigiMark repository
+1. Select your DigiDhanda repository
 2. Click **"Connect"**
 
 ### Step 1.5: Configure Backend Service
 
 | Setting | Value |
 |---------|-------|
-| Name | `digimark-api` |
+| Name | `digidhanda-api` |
 | Region | Choose closest to you |
 | Branch | `main` |
 | Root Directory | `server` |
@@ -83,18 +83,18 @@ Add ALL of these from your `.env` file:
 | `TWITTER_CLIENT_SECRET` | your-twitter-client-secret |
 | `FACEBOOK_APP_ID` | your-facebook-app-id |
 | `FACEBOOK_APP_SECRET` | your-facebook-app-secret |
-| `REDIRECT_URI` | `https://digimark-api.onrender.com/auth/callback` |
+| `REDIRECT_URI` | `https://digidhanda-api.onrender.com/auth/callback` |
 | `NODE_ENV` | `production` |
 
 ### Step 1.7: Deploy Backend
 
 1. Click **"Create Web Service"**
 2. Wait for build to complete (5-10 minutes)
-3. Note your backend URL: `https://digimark-api.onrender.com`
+3. Note your backend URL: `https://digidhanda-api.onrender.com`
 
 ### Step 1.8: Test Backend
 
-Visit: `https://digimark-api.onrender.com`
+Visit: `https://digidhanda-api.onrender.com`
 Should show: "Website Summarizer Server is Running!"
 
 ---
@@ -114,7 +114,7 @@ const baseUrl = 'http://localhost:5001';
 
 To:
 ```typescript
-const baseUrl = 'https://digimark-api.onrender.com';
+const baseUrl = 'https://digidhanda-api.onrender.com';
 ```
 
 **Also check:** `src/App.tsx` or any files making API calls.
@@ -134,14 +134,14 @@ Make sure build succeeds with no errors.
 
 ### Step 2.4: Connect Repository
 
-1. Select the same DigiMark repository
+1. Select the same DigiDhanda repository
 2. Click **"Connect"**
 
 ### Step 2.5: Configure Frontend Static Site
 
 | Setting | Value |
 |---------|-------|
-| Name | `digimark` |
+| Name | `digidhanda` |
 | Branch | `main` |
 | Root Directory | `.` (or leave empty for root) |
 | Build Command | `npm install && npm run build` |
@@ -153,13 +153,13 @@ If your frontend uses any environment variables (like VITE_API_URL):
 
 | Key | Value |
 |-----|-------|
-| `VITE_API_URL` | `https://digimark-api.onrender.com` |
+| `VITE_API_URL` | `https://digidhanda-api.onrender.com` |
 
 ### Step 2.7: Deploy Frontend
 
 1. Click **"Create Static Site"**
 2. Wait for build (3-5 minutes)
-3. Note your frontend URL: `https://digimark.onrender.com`
+3. Note your frontend URL: `https://digidhanda.onrender.com`
 
 ---
 
@@ -172,17 +172,17 @@ Go to: https://developers.facebook.com/apps/1533991621176794/
 **Facebook Login → Settings:**
 | Setting | New Value |
 |---------|-----------|
-| Valid OAuth Redirect URIs | `https://digimark-api.onrender.com/auth/callback` |
-| | `https://digimark-api.onrender.com/auth/facebook/callback` |
-| Deauthorize Callback URL | `https://digimark-api.onrender.com/auth/facebook/deauthorize` |
-| Data Deletion Request URL | `https://digimark-api.onrender.com/auth/facebook/delete` |
+| Valid OAuth Redirect URIs | `https://digidhanda-api.onrender.com/auth/callback` |
+| | `https://digidhanda-api.onrender.com/auth/facebook/callback` |
+| Deauthorize Callback URL | `https://digidhanda-api.onrender.com/auth/facebook/deauthorize` |
+| Data Deletion Request URL | `https://digidhanda-api.onrender.com/auth/facebook/delete` |
 
 **Settings → Basic:**
 | Setting | New Value |
 |---------|-----------|
-| App Domains | `digimark.onrender.com`, `digimark-api.onrender.com` |
-| Privacy Policy URL | `https://digimark.onrender.com/privacy` |
-| Terms of Service URL | `https://digimark.onrender.com/terms` |
+| App Domains | `digidhanda.onrender.com`, `digidhanda-api.onrender.com` |
+| Privacy Policy URL | `https://digidhanda.onrender.com/privacy` |
+| Terms of Service URL | `https://digidhanda.onrender.com/terms` |
 
 ### Step 3.2: Update LinkedIn Developer Portal
 
@@ -191,7 +191,7 @@ Go to: https://www.linkedin.com/developers/apps/
 **Auth → OAuth 2.0 settings:**
 | Setting | New Value |
 |---------|-----------|
-| Authorized redirect URLs | `https://digimark-api.onrender.com/auth/callback` |
+| Authorized redirect URLs | `https://digidhanda-api.onrender.com/auth/callback` |
 
 ### Step 3.3: Update Twitter Developer Portal
 
@@ -200,14 +200,14 @@ Go to: https://developer.twitter.com/
 **App Settings → Authentication settings:**
 | Setting | New Value |
 |---------|-----------|
-| Callback URLs | `https://digimark-api.onrender.com/auth/callback` |
+| Callback URLs | `https://digidhanda-api.onrender.com/auth/callback` |
 
 ---
 
 ## PART 4: Final Testing
 
 ### 4.1: Test Frontend
-1. Visit: `https://digimark.onrender.com`
+1. Visit: `https://digidhanda.onrender.com`
 2. Verify app loads correctly
 
 ### 4.2: Test OAuth Flow
@@ -240,7 +240,7 @@ app.use(cors({
   origin: [
     'http://localhost:3002',
     'http://localhost:5174',
-    'https://digimark.onrender.com'
+    'https://digidhanda.onrender.com'
   ],
   credentials: true
 }));
@@ -254,8 +254,8 @@ After deployment, you'll have:
 
 | Service | URL |
 |---------|-----|
-| Frontend | `https://digimark.onrender.com` |
-| Backend API | `https://digimark-api.onrender.com` |
-| OAuth Callback | `https://digimark-api.onrender.com/auth/callback` |
+| Frontend | `https://digidhanda.onrender.com` |
+| Backend API | `https://digidhanda-api.onrender.com` |
+| OAuth Callback | `https://digidhanda-api.onrender.com/auth/callback` |
 
 Use these URLs in your Meta App Review submission!

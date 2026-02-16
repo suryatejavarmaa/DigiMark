@@ -4,7 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getStorage } from 'firebase/storage';
 
-// Using the SAME Firebase project as the original DigiMark app
+// Using the SAME Firebase project as the original DigiDhanda app
 // This allows both apps to share the same database, auth, and storage
 const firebaseConfig = {
     apiKey: "AIzaSyCP441OctDxPAIS9rSwRCJ7bxmJaktVS58",

@@ -31,7 +31,7 @@ export function StartupSequence({ onComplete }: StartupSequenceProps = {}) {
       const interval = 20; // Update every 20ms
       const steps = duration / interval;
       const increment = 100 / steps;
-      
+
       let currentProgress = 0;
       const progressInterval = setInterval(() => {
         currentProgress += increment;
@@ -61,7 +61,7 @@ export function StartupSequence({ onComplete }: StartupSequenceProps = {}) {
   }, [sequenceState, onComplete]);
 
   return (
-    <motion.div 
+    <motion.div
       className="h-full w-full bg-[#1a1a1a] flex flex-col items-center justify-center px-8"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -75,7 +75,7 @@ export function StartupSequence({ onComplete }: StartupSequenceProps = {}) {
       >
         <GeometricLogo />
       </motion.div>
-      
+
       {/* APP NAME - Animates ONCE with logo */}
       <motion.h1
         initial={{ y: 20, opacity: 0 }}
@@ -84,7 +84,7 @@ export function StartupSequence({ onComplete }: StartupSequenceProps = {}) {
         className="mt-8 text-white tracking-wider"
         style={{ fontWeight: 700, fontSize: '2rem' }}
       >
-        Digi Mark
+        DigiDhanda
       </motion.h1>
 
       {/* LOADING BAR - Only appears in 'loading' phase */}

@@ -137,20 +137,17 @@ export class SchedulerService {
                             console.error('[Scheduler] ❌ Notification error:', notifError);
                         }
                     }
-
-                } catch (publishError) {
-                    console.error(`[Scheduler] Error publishing post ${postId}:`, publishError);
-
-                    // Update to failed status
+                } catch (error) { // This catch block is for the `this.publishFunction` call
+                    console.error(`[Scheduler] ❌ Error publishing post ${postId}:`, error);
+                    // Update post status to failed if an exception occurred during publish attempt
                     const docRef = doc(this.db, 'scheduledPosts', postId);
                     await updateDoc(docRef, {
                         status: 'failed',
                         updatedAt: new Date().toISOString(),
-                        error: publishError.message || 'Unknown error'
+                        error: error.message || 'Unknown error during publishing'
                     });
                 }
-            }
-
+            } // End of for (const post of duePosts) loop
         } catch (error) {
             console.error('[Scheduler] Error checking scheduled posts:', error);
         }

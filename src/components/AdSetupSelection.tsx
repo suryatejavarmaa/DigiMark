@@ -125,7 +125,7 @@ export const AdSetupSelection: React.FC<AdSetupSelectionProps> = ({ onSelect, on
                 <div className="pt-4 flex items-center gap-2 justify-center">
                     <Sparkles className="w-4 h-4 text-[#00d4ff]" />
                     <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em]">
-                        Powered by DigiMark AI
+                        Powered by DigiDhanda AI
                     </p>
                 </div>
             </div>

@@ -911,7 +911,7 @@ export function SelectChannelsImage({
                   if (unconnectedPlatforms.length === 1) {
                     return `To publish on ${getPlatformName(platformToConnect)}, you need to connect your account first.`;
                   } else {
-                    return 'You need to connect your accounts to publish content. This will allow DigiMark to post on your behalf.';
+                    return 'You need to connect your accounts to publish content. This will allow DigiDhanda to post on your behalf.';
                   }
                 })()}
               </p>

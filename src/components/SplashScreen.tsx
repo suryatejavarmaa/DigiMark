@@ -11,7 +11,7 @@ export function SplashScreen() {
       >
         <GeometricLogo />
       </motion.div>
-      
+
       <motion.h1
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -19,7 +19,7 @@ export function SplashScreen() {
         className="mt-8 text-white tracking-wider"
         style={{ fontWeight: 700, fontSize: '2rem' }}
       >
-        Digi Mark
+        DigiDhanda
       </motion.h1>
     </div>
   );

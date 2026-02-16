@@ -1,7 +1,7 @@
 
-  # DigiMark App Design System
+  # DigiDhanda App Design System
 
-  This is a code bundle for DigiMark App Design System. The original project is available at https://www.figma.com/design/w7tgqBIfCXNczqZFTYXudZ/DigiMark-App-Design-System.
+  This is a code bundle for DigiDhanda App Design System. The original project is available at https://www.figma.com/design/w7tgqBIfCXNczqZFTYXudZ/DigiDhanda-App-Design-System.
 
   ## Running the code
 

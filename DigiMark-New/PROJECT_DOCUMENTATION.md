@@ -1,4 +1,4 @@
-# DigiMark-New - Complete Project Documentation
+# DigiDhanda-New - Complete Project Documentation
 
 ## Table of Contents
 1. [Project Overview](#project-overview)
@@ -21,7 +21,7 @@
 
 ## Project Overview
 
-**DigiMark-New** is a mobile-first social media marketing automation platform built with React, Vite, TypeScript, and TailwindCSS. It enables businesses to create, schedule, and publish AI-generated content across multiple social media platforms.
+**DigiDhanda-New** is a mobile-first social media marketing automation platform built with React, Vite, TypeScript, and TailwindCSS. It enables businesses to create, schedule, and publish AI-generated content across multiple social media platforms.
 
 ### Key Features
 - ✅ AI-generated social media captions (Groq/LLaMA 3.3)
@@ -55,7 +55,7 @@
 ## Project Structure
 
 ```
-DigiMark-New/
+DigiDhanda-New/
 ├── src/
 │   ├── app/
 │   │   ├── App.tsx                    # Main router (~935 lines)
@@ -895,4 +895,4 @@ FACEBOOK_APP_SECRET=your_facebook_app_secret
 ---
 
 *Documentation generated on January 19, 2026*
-*DigiMark-New v0.0.1*
+*DigiDhanda-New v0.0.1*

@@ -1,4 +1,4 @@
-# Digi Mark - Complete Application Flow
+# DigiDhanda - Complete Application Flow
 
 ## 🚀 STARTUP SEQUENCE (NEW - UNIFIED)
 
@@ -9,13 +9,13 @@
 │  Phase 1: LOGO (1.5s)                                      │
 │  ┌──────────────┐                                          │
 │  │   [LOGO]     │  ← Animates ONCE                         │
-│  │  Digi Mark   │                                          │
+│  │  DigiDhanda   │                                          │
 │  └──────────────┘                                          │
 │                                                             │
 │  Phase 2: LOADING (2s)                                     │
 │  ┌──────────────┐                                          │
 │  │   [LOGO]     │  ← STATIC (no re-animation)             │
-│  │  Digi Mark   │                                          │
+│  │  DigiDhanda   │                                          │
 │  └──────────────┘                                          │
 │  ▓▓▓▓▓▓▓▓▓▓░░░░  ← Loading bar (0% → 100%)                │
 │   Loading...                                               │

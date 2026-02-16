@@ -405,7 +405,7 @@ box-shadow:
 - Tech-forward
 - High-energy
 - Premium feel
-- Matches "Digi Mark" tech aesthetic
+- Matches "DigiDhanda" tech aesthetic
 - Pairs with electric accent (#00bfff)
 
 The cyan branding creates a more cohesive, premium experience that matches the high-tech marketing professional target audience! 💎✨

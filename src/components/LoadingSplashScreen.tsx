@@ -11,7 +11,7 @@ export function LoadingSplashScreen() {
       >
         <GeometricLogo />
       </motion.div>
-      
+
       <motion.h1
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -19,7 +19,7 @@ export function LoadingSplashScreen() {
         className="mt-8 text-white tracking-wider"
         style={{ fontWeight: 700, fontSize: '2rem' }}
       >
-        Digi Mark
+        DigiDhanda
       </motion.h1>
 
       {/* Loading Progress Bar */}
@@ -36,7 +36,7 @@ export function LoadingSplashScreen() {
             ease: 'linear',
           }}
         />
-        
+
         {/* Progress bar */}
         <motion.div
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#00d4ff] to-[#0099cc] rounded-full"

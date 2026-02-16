@@ -17,12 +17,12 @@ interface ConnectAccountModalProps {
 
 export function ConnectAccountModal({ isOpen, selectedPlatforms, onConnect, onClose }: ConnectAccountModalProps) {
   if (!isOpen) return null;
-  
-  const platformText = selectedPlatforms.length === 1 
+
+  const platformText = selectedPlatforms.length === 1
     ? selectedPlatforms[0].name
     : selectedPlatforms.length === 2
-    ? `${selectedPlatforms[0].name} and ${selectedPlatforms[1].name}`
-    : `${selectedPlatforms.length} platforms`;
+      ? `${selectedPlatforms[0].name} and ${selectedPlatforms[1].name}`
+      : `${selectedPlatforms.length} platforms`;
 
   return (
     <>
@@ -150,7 +150,7 @@ export function ConnectAccountModal({ isOpen, selectedPlatforms, onConnect, onCl
             }}
           >
             You need to connect your {platformText} account to publish content. This will allow
-            DigiMark to post on your behalf.
+            DigiDhanda to post on your behalf.
           </p>
 
           {/* Connect Button */}

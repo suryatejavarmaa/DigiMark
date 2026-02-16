@@ -78,7 +78,7 @@ export function Dashboard({ onNavigate, userName, companyName, userId }: Dashboa
                 fontFamily: 'Outfit, sans-serif'
               }}
             >
-              {companyName || userName || 'DigiMark User'}
+              {companyName || userName || 'DigiDhanda User'}
             </h1>
           </div>
 

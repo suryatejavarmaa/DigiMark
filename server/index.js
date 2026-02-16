@@ -22,7 +22,19 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'https://digidhanda.onrender.com',
+        'https://digidhanda-api.onrender.com',
+        'https://digimark-casv.onrender.com'
+    ],
+    credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static('public/uploads')); // Serve uploaded images
@@ -1120,7 +1132,7 @@ app.post('/publish', async (req, res) => {
                     } catch (facebookError) {
                         console.error('[Publish][Facebook] Auto-post failed:', facebookError.message);
                         // Fallback to share dialog with caption as hashtag
-                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(mediaUrl || 'https://www.facebook.com')}&hashtag=${encodeURIComponent('#DigiMark')}`;
+                        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(mediaUrl || 'https://www.facebook.com')}&hashtag=${encodeURIComponent('#DigiDhanda')}`;
 
                         // Return result with caption so UI can show it for manual copying
                         results[p] = {
@@ -3293,13 +3305,85 @@ app.listen(PORT, '0.0.0.0', () => {
                             };
                         }
                     } else if (p === 'instagram') {
+                        console.log('[Scheduler][Instagram] Attempting auto-post...');
                         optimizedCaption = optimizeCaptionForInstagram(cleanedContent);
-                        results[p] = {
-                            status: 'success',
-                            action: 'share_dialog',
-                            url: 'https://www.instagram.com/',
-                            optimizedCaption: optimizedCaption
-                        };
+
+                        try {
+                            if (!mediaUrl) {
+                                throw new Error('Instagram requires an image');
+                            }
+
+                            // 1. Get Tokens from Firestore
+                            const tokensRef = doc(db, 'users', userId, 'tokens', 'facebook');
+                            const tokenDoc = await getDoc(tokensRef);
+
+                            if (!tokenDoc.exists()) {
+                                throw new Error('Instagram not connected (no Facebook token found)');
+                            }
+
+                            const tokenData = tokenDoc.data();
+                            const igUserId = tokenData.instagram_id;
+                            const accessToken = tokenData.access_token; // Page Access Token
+
+                            if (!igUserId) {
+                                throw new Error('No Instagram Business Account linked to this Facebook Page');
+                            }
+
+                            console.log(`[Scheduler][Instagram] Publishing to IG User: ${igUserId}`);
+
+                            // 2. Create Media Container
+                            const containerUrl = `https://graph.facebook.com/v18.0/${igUserId}/media?image_url=${encodeURIComponent(mediaUrl)}&caption=${encodeURIComponent(optimizedCaption)}&access_token=${accessToken}`;
+
+                            const containerResponse = await fetch(containerUrl, { method: 'POST' });
+                            const containerData = await containerResponse.json();
+
+                            if (containerData.error) {
+                                throw new Error(`IG Container Error: ${containerData.error.message}`);
+                            }
+
+                            const creationId = containerData.id;
+                            console.log(`[Scheduler][Instagram] Container created: ${creationId}`);
+
+                            // Wait a bit for processing
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+
+                            // 3. Publish Media Container
+                            const publishUrl = `https://graph.facebook.com/v18.0/${igUserId}/media_publish?creation_id=${creationId}&access_token=${accessToken}`;
+
+                            const publishResponse = await fetch(publishUrl, { method: 'POST' });
+                            const publishData = await publishResponse.json();
+
+                            if (publishData.error) {
+                                throw new Error(`IG Publish Error: ${publishData.error.message}`);
+                            }
+
+                            console.log(`[Scheduler][Instagram] ✅ Published successfully: ${publishData.id}`);
+
+                            // Try to get permalink
+                            let permalink = 'https://www.instagram.com/';
+                            try {
+                                const mediaResponse = await fetch(`https://graph.facebook.com/v18.0/${publishData.id}?fields=permalink&access_token=${accessToken}`);
+                                const mediaData = await mediaResponse.json();
+                                if (mediaData.permalink) permalink = mediaData.permalink;
+                            } catch (e) {
+                                console.warn('Could not fetch IG permalink');
+                            }
+
+                            results[p] = {
+                                status: 'success',
+                                action: 'auto_posted',
+                                url: permalink,
+                                message: 'Instagram post published successfully!',
+                                postId: publishData.id
+                            };
+
+                        } catch (igError) {
+                            console.error('[Scheduler][Instagram] Auto-post failed:', igError.message);
+                            results[p] = {
+                                status: 'failed',
+                                error: igError.message
+                            };
+                        }
                     }
 
                 } catch (e) {

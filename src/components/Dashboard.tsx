@@ -85,7 +85,7 @@ export function Dashboard({ userId, onSocialCaptionClick, onSocialGraphicClick, 
                 className="text-white"
                 style={{ fontSize: '1.5rem', fontWeight: 700 }}
               >
-                {activeTab === 'home' ? (userProfile?.businessName || 'Digi Mark') : activeTab === 'calendar' ? 'Schedule' : (userProfile?.fullName || 'User')}
+                {activeTab === 'home' ? (userProfile?.businessName || 'DigiDhanda') : activeTab === 'calendar' ? 'Schedule' : (userProfile?.fullName || 'User')}
               </motion.h1>
             </div>
             <NotificationDropdown userId={userId} onSeeAllClick={onNotificationsClick} />

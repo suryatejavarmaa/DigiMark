@@ -1,8 +1,8 @@
-# DigiMark - Facebook/Meta App Review Submission
+# DigiDhanda - Facebook/Meta App Review Submission
 
 ## App Overview
 
-**App Name:** DigiMark  
+**App Name:** DigiDhanda  
 **Category:** Social Media Management / Business Tool  
 **Target Users:** Small businesses, marketers, content creators with Facebook Pages
 
@@ -10,7 +10,7 @@
 
 ## Use Case Description
 
-> DigiMark is an AI-powered social media management platform that helps businesses create, schedule, and publish professional content to their Facebook Pages.
+> DigiDhanda is an AI-powered social media management platform that helps businesses create, schedule, and publish professional content to their Facebook Pages.
 >
 > **Facebook Integration Use Case:**  
 > Business owners connect their Facebook account via OAuth to enable posting to their Facebook Pages. The app:
@@ -39,7 +39,7 @@
 **Duration:** 3-4 minutes
 
 ### Scene 1: Introduction (15 sec)
-- Show DigiMark logo
+- Show DigiDhanda logo
 - Text: "AI-powered social media management for businesses"
 
 ### Scene 2: Business Onboarding (20 sec)
@@ -70,7 +70,7 @@
 - Open Facebook in browser
 - Navigate to the user's Facebook Page
 - **Show the published post on the Page** (critical proof!)
-- Highlight: "Posted via DigiMark" or similar
+- Highlight: "Posted via DigiDhanda" or similar
 
 ### Scene 7: User Controls (30 sec)
 - Show settings/account page
@@ -126,7 +126,7 @@
 
 ### Data Storage
 - Tokens stored in Firebase with user-specific encryption
-- Data associated with user's DigiMark account only
+- Data associated with user's DigiDhanda account only
 - Never shared with third parties
 
 ### Data Deletion
@@ -139,24 +139,24 @@
 ## Data Deletion Instructions
 
 When a user requests data deletion:
-1. Navigate to DigiMark Settings
+1. Navigate to DigiDhanda Settings
 2. Click "Disconnect Facebook"
 3. All Facebook tokens are deleted immediately
 4. For complete account deletion, contact: [Your Email]
 
-**Data Deletion Callback URL:** `https://[your-domain]/auth/facebook/delete`
+**Data Deletion Callback URL:** `https://digidhanda-api.onrender.com/auth/facebook/delete`
+
 
 ---
 
 ## Contact Information
 
-**Developer:** [Your Name]  
-**Business Name:** [Your Business/Company Name]  
-**Email:** [Your Email]  
-**Website:** [Your Website URL]  
-**Privacy Policy:** [Privacy Policy URL]  
-**Terms of Service:** [Terms of Service URL]  
-**Data Deletion:** [Data Deletion Instructions URL]
+**Contact email:** Bhargavsai.9290@gmail.com
+**Website URL:** https://digidhanda.onrender.com
+**Privacy Policy URL:** https://digidhanda.onrender.com/privacy-policy
+**Terms of Service URL:** https://digidhanda.onrender.com/privacy-policy#terms
+**Data Deletion URL:** https://digidhanda.onrender.com/privacy-policy#data-deletion
+
 
 ---
 

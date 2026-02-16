@@ -1,4 +1,4 @@
-# Digi Mark App - Implementation Summary
+# DigiDhanda App - Implementation Summary
 
 ## ✅ COMPLETED IMPLEMENTATION
 

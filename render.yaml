@@ -1,10 +1,10 @@
-# Render Blueprint - Single Repo Deployment for DigiMark
+# Render Blueprint - Single Repo Deployment for DigiDhanda
 # This file configures both backend (Web Service) and frontend (Static Site)
 
 services:
   # Backend - Node.js Web Service
   - type: web
-    name: digimark-api
+    name: digidhanda-api
     env: node
     region: oregon
     rootDir: server
@@ -37,11 +37,12 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-  # Frontend - Static Site (DigiMark-New)
+  # Frontend - Static Site (DigiDhanda-New)
   # Note: Static sites don't support region - Render handles CDN automatically
-  - type: web
-    name: digimark
+  - type: static
+    name: digidhanda
     env: static
+
     rootDir: DigiMark-New
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -55,4 +56,5 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://digimark-api.onrender.com
+        value: https://digidhanda-api.onrender.com
+
