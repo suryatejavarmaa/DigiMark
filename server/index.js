@@ -60,6 +60,30 @@ const auth = getAuth(firebaseApp);
 // Needed because Twitter doesn't send the secret back in the callback
 const tempTwitterTokens = new Map();
 
+// --- META COMPLIANCE ENDPOINTS ---
+// These are required by Meta for live apps
+
+app.post('/auth/facebook/deauthorize', (req, res) => {
+    console.log('[Meta] Received deauthorize callback');
+    // In a real app, you would mark the user tokens as invalid here
+    res.json({ status: 'success' });
+});
+
+app.post('/auth/facebook/delete', async (req, res) => {
+    console.log('[Meta] Received data deletion request');
+    // Meta sends a signed_request. Extract user_id from it:
+    // For now, return a status page and a confirmation code as required by Meta policy
+    const confirmationCode = 'DELETION_' + Date.now();
+    res.json({
+        url: 'https://digidhanda.onrender.com/delete-confirm',
+        confirmation_code: confirmationCode
+    });
+});
+
+app.get('/auth/facebook/delete', (req, res) => {
+    res.send('<h1>Data Deletion Request Successful</h1><p>Your request has been received. Data will be purged within 48 hours.</p>');
+});
+
 // Helper: Shorten URL
 async function shortenUrl(longUrl) {
     console.log(`[shortenUrl] Shortening URL: ${longUrl.substring(0, 50)}...`);

@@ -830,9 +830,6 @@ export default function App() {
 
 
         return <PostPublishSuccess onNavigate={setCurrentScreen} publishResults={publishResultData} platforms={platformsList} />;
-      case 'publishing-success':
-        // This is the success page used by Social Posts and Business Poster sections
-        return <PublishingSuccess onNavigate={setCurrentScreen} />;
       case 'publishing-animation-text':
         return <PublishingAnimation onNavigate={setCurrentScreen} userId={userId} selectedPlatforms={undefined} />;
       case 'publishing-animation-image':
