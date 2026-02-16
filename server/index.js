@@ -2848,19 +2848,32 @@ app.get('/auth/facebook', (req, res) => {
     }
 
     console.log('[Facebook OAuth] Initiating for user:', userId);
-    console.log('[Facebook OAuth] Redirect origin:', redirect_origin || 'not provided');
 
-    // Build OAuth URL with proper encoding
-    // Using basic permissions that don't require app review
-    const params = new URLSearchParams({
-        client_id: process.env.FACEBOOK_APP_ID,
-        redirect_uri: 'http://localhost:5001/auth/facebook/callback',
-        state: `${userId}:::${redirect_origin || 'http://localhost:3002'}`,
-        scope: 'public_profile,pages_show_list,pages_read_engagement',
-        response_type: 'code'
-    });
+    // Determine redirect URI based on whether we are local or live
+    const host = req.get('host');
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const apiBase = isLocal ? `http://${host}` : 'https://digidhanda-api.onrender.com';
+    const callbackUri = `${apiBase}/auth/facebook/callback`;
 
-    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`;
+    console.log('[Facebook OAuth] Using Callback:', callbackUri);
+
+    // Requesting permissions for both Facebook Pages and Instagram Business
+    const scopes = [
+        'pages_manage_posts',
+        'pages_read_engagement',
+        'instagram_basic',
+        'instagram_content_publish'
+    ].join(',');
+
+    // Check if we should use config_id (required for some "Business" apps)
+    const configParam = process.env.FACEBOOK_CONFIG_ID ? `&config_id=${process.env.FACEBOOK_CONFIG_ID}` : '';
+
+    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
+        `client_id=${process.env.FACEBOOK_APP_ID}` +
+        configParam +
+        `&redirect_uri=${encodeURIComponent(callbackUri)}` +
+        `&state=${userId}:::${redirect_origin || 'http://localhost:5174'}` +
+        `&scope=${scopes}`;
 
     console.log('[Facebook OAuth] Redirecting to:', authUrl);
     res.redirect(authUrl);
@@ -2868,11 +2881,16 @@ app.get('/auth/facebook', (req, res) => {
 
 // Facebook OAuth Step 2: Callback - Exchange code for token
 app.get('/auth/facebook/callback', async (req, res) => {
-    const { code, state } = req.query;
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+        console.error('[Facebook OAuth] Error from Meta:', error, error_description);
+        return res.send(`❌ Facebook Error: ${error_description || error}`);
+    }
 
     if (!code || !state) {
         console.error('[Facebook OAuth] Missing code or state');
-        return res.redirect('http://localhost:3002?connected=facebook&error=missing_params');
+        return res.status(400).send('Missing code or state');
     }
 
     const [userId, origin] = state.split(':::');
@@ -2880,47 +2898,78 @@ app.get('/auth/facebook/callback', async (req, res) => {
     try {
         console.log('[Facebook OAuth] Processing callback for user:', userId);
 
-        // Step 1: Exchange code for access token
+        const host = req.get('host');
+        const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+        const apiBase = isLocal ? `http://${host}` : 'https://digidhanda-api.onrender.com';
+        const callbackUri = `${apiBase}/auth/facebook/callback`;
+
+        // Step 1: Exchange code for SHORT-LIVED access token
         const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
             `client_id=${process.env.FACEBOOK_APP_ID}` +
             `&client_secret=${process.env.FACEBOOK_APP_SECRET}` +
-            `&redirect_uri=${encodeURIComponent('http://localhost:5001/auth/facebook/callback')}` +
+            `&redirect_uri=${encodeURIComponent(callbackUri)}` +
             `&code=${code}`;
 
         const tokenResponse = await fetch(tokenUrl);
         const tokenData = await tokenResponse.json();
 
         if (!tokenData.access_token) {
-            throw new Error('Failed to get access token');
+            console.error('[Facebook OAuth] Failed to get token:', tokenData);
+            throw new Error(tokenData.error?.message || 'Failed to get access token');
         }
 
-        console.log('[Facebook OAuth] User access token received');
+        const shortLivedToken = tokenData.access_token;
 
-        // Step 2: Get user's Facebook Pages
-        const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`;
+        // Step 1.5: Exchange for LONG-LIVED access token (60 days)
+        const longLivedUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
+            `grant_type=fb_exchange_token` +
+            `&client_id=${process.env.FACEBOOK_APP_ID}` +
+            `&client_secret=${process.env.FACEBOOK_APP_SECRET}` +
+            `&fb_exchange_token=${shortLivedToken}`;
+
+        const longLivedResponse = await fetch(longLivedUrl);
+        const longLivedData = await longLivedResponse.json();
+        const userAccessToken = longLivedData.access_token || shortLivedToken;
+
+        console.log(`[Facebook OAuth] Token exchange: ${longLivedData.access_token ? 'Long-lived obtained' : 'Kept short-lived'}`);
+
+        // Step 2: Get user's Facebook Pages AND linked Instagram IDs
+        const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=name,access_token,instagram_business_account&access_token=${userAccessToken}`;
         const pagesResponse = await fetch(pagesUrl);
         const pagesData = await pagesResponse.json();
 
         if (!pagesData.data || pagesData.data.length === 0) {
-            console.error('[Facebook OAuth] No pages found for this user');
+            console.error('[Facebook OAuth] No pages found');
             return res.redirect(`${origin}?connected=facebook&error=no_pages`);
         }
 
-        // Use first page (or let user choose in future)
+        // Use first page
         const firstPage = pagesData.data[0];
-        console.log('[Facebook OAuth] Using page:', firstPage.name, firstPage.id);
+        const instagramId = firstPage.instagram_business_account ? firstPage.instagram_business_account.id : null;
 
-        // Step 3: Save Page Access Token to Firestore
+        // Step 3: Save to Firestore
         const tokensRef = doc(db, 'users', userId, 'tokens', 'facebook');
         await setDoc(tokensRef, {
-            access_token: firstPage.access_token, // PAGE access token, not user token!
+            access_token: firstPage.access_token, // PAGE access token (infinite lifetime for pages)
             page_id: firstPage.id,
             page_name: firstPage.name,
+            instagram_id: instagramId,
             connectedAt: new Date().toISOString()
         });
 
-        console.log('✅ Facebook OAuth successful for user:', userId);
-        res.redirect(`${origin}?connected=facebook&success=true&page=${encodeURIComponent(firstPage.name)}`);
+        // Also save separate instagram token doc
+        if (instagramId) {
+            const igTokensRef = doc(db, 'users', userId, 'tokens', `instagram_${userId}`);
+            await setDoc(igTokensRef, {
+                access_token: userAccessToken,
+                page_access_token: firstPage.access_token,
+                instagram_business_id: instagramId,
+                connectedAt: new Date().toISOString()
+            });
+        }
+
+        console.log('✅ Facebook & Instagram OAuth successful for:', userId);
+        res.redirect(`${origin}?connected=facebook&success=true&page=${encodeURIComponent(firstPage.name)}&ig=${!!instagramId}`);
 
     } catch (error) {
         console.error('[Facebook OAuth] Error:', error);
