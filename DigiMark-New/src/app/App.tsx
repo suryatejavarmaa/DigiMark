@@ -136,8 +136,11 @@ export default function App() {
     }
 
     // Check for direct URL paths (for privacy policy, terms, etc.)
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = params.get('page');
     const path = window.location.pathname;
-    if (path === '/privacy-policy' || path === '/privacy' || path === '/terms' || path === '/data-deletion') {
+
+    if (path === '/privacy' || pageParam === 'privacy' || path === '/terms' || path === '/delete-instructions') {
       setCurrentScreen('privacy-policy');
     }
 
@@ -548,6 +551,11 @@ export default function App() {
       if (['login-choice', 'profile-settings', 'dashboard'].includes(currentScreen)) {
         setReturnScreen(currentScreen);
       }
+      // Update URL for Meta verification
+      window.history.pushState({}, '', '/privacy');
+    } else if (currentScreen === 'privacy-policy' && screen !== 'privacy-policy') {
+      // Reset URL when leaving privacy policy
+      window.history.pushState({}, '', '/');
     }
     setCurrentScreen(screen);
   };
