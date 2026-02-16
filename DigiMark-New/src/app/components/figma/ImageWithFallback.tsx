@@ -18,6 +18,9 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
 
   const { src, alt, style, className, ...rest } = props
 
+  // If no src URL provided, show permanent loading state
+  const showLoading = isLoading || !src
+
   // Loading shimmer animation
   const shimmerStyle: React.CSSProperties = {
     background: 'linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%)',
@@ -42,7 +45,7 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
   return (
     <div className={`relative ${className ?? ''}`} style={style}>
       {/* Loading shimmer overlay */}
-      {isLoading && (
+      {showLoading && (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center"
           style={shimmerStyle}
@@ -71,22 +74,24 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
         </div>
       )}
 
-      {/* Actual image (hidden until loaded) */}
-      <img
-        src={src}
-        alt={alt}
-        style={{
-          ...style,
-          opacity: isLoading ? 0 : 1,
-          transition: 'opacity 0.3s ease-in-out',
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-        }}
-        {...rest}
-        onError={handleError}
-        onLoad={handleLoad}
-      />
+      {/* Actual image (hidden until loaded, only render if src exists) */}
+      {src && (
+        <img
+          src={src}
+          alt={alt}
+          style={{
+            ...style,
+            opacity: showLoading ? 0 : 1,
+            transition: 'opacity 0.3s ease-in-out',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+          {...rest}
+          onError={handleError}
+          onLoad={handleLoad}
+        />
+      )}
 
       {/* CSS animations injected via style tag */}
       <style>{`

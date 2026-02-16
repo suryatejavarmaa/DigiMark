@@ -24,29 +24,14 @@ export function GeneratedImages({
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(externalSelectedIndex ?? null);
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
 
-  // Default images if none provided from API
-  const defaultImages = [
-    {
-      id: 1,
-      url: 'https://images.unsplash.com/photo-1579779866825-b598bf3ab783?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      title: 'Variation 1',
-      description: 'Photorealistic style'
-    },
-    {
-      id: 2,
-      url: 'https://images.unsplash.com/photo-1608908271310-57a24a9447db?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      title: 'Variation 2',
-      description: 'Cinematic lighting'
-    },
-    {
-      id: 3,
-      url: 'https://images.unsplash.com/photo-1653661323280-496e75d9fc61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-      title: 'Variation 3',
-      description: 'Bold colors'
-    }
+  // Default loading placeholders when images are being generated
+  const loadingPlaceholders = [
+    { id: 1, url: '', title: 'Variation 1', description: 'Generating...' },
+    { id: 2, url: '', title: 'Variation 2', description: 'Generating...' },
+    { id: 3, url: '', title: 'Variation 3', description: 'Generating...' }
   ];
 
-  // Use external images if provided, otherwise use defaults
+  // Use external images if provided, otherwise show loading placeholders
   const generatedImages = (externalImages && externalImages.length > 0)
     ? externalImages.map((url, index) => ({
       id: index + 1,
@@ -54,7 +39,7 @@ export function GeneratedImages({
       title: `Variation ${index + 1}`,
       description: externalPrompts?.[index] || `AI Generated Style ${index + 1}`
     }))
-    : defaultImages;
+    : loadingPlaceholders;
 
   // Sync with external selectedIndex
   useEffect(() => {

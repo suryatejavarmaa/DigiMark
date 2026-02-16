@@ -1,9 +1,10 @@
-import { ArrowLeft, Linkedin, Facebook, Instagram, Twitter, Sparkles, RefreshCw, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Linkedin, Facebook, Instagram, Twitter, Sparkles, RefreshCw, Copy, Check, Pencil } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ConnectAccountModal } from './ConnectAccountModal';
 import { SocialService } from '../../services/SocialService';
 import { AIService } from '../../services/AIService';
+import { ImageEditPopup } from './ImageEditPopup';
 
 interface SelectChannelsImageProps {
   onNavigate: (screen: string) => void;
@@ -44,6 +45,11 @@ export function SelectChannelsImage({
   });
   const [selectedAction, setSelectedAction] = useState<'schedule' | 'publish' | null>(null);
   const [platformToConnect, setPlatformToConnect] = useState<string>('');
+
+  // Image editing state
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl || '');
 
   // Fetch caption on mount if not provided
   // Fetch caption on mount or when image/description changes
@@ -104,7 +110,7 @@ export function SelectChannelsImage({
     // Store selected platforms and content in localStorage for preview
     localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
     localStorage.setItem('publishCaption', generatedCaption);
-    if (imageUrl) localStorage.setItem('publishImageUrl', imageUrl);
+    if (currentImageUrl) localStorage.setItem('publishImageUrl', currentImageUrl);
 
     if (unconnectedPlatforms.length > 0) {
       // Show connect modal for first unconnected platform
@@ -167,6 +173,31 @@ export function SelectChannelsImage({
   const getPlatformName = (platformId: string) => {
     const platform = platforms.find(p => p.id === platformId);
     return platform ? platform.name : platformId;
+  };
+
+  // Handle image editing
+  const handleEditImage = async (editPrompt: string) => {
+    setIsEditingImage(true);
+    try {
+      const result = await AIService.editImage(
+        currentImageUrl,
+        editPrompt,
+        userId
+      );
+
+      if (result.success && result.modifiedImage) {
+        setCurrentImageUrl(result.modifiedImage);
+        setShowEditPopup(false);
+      } else {
+        console.error('Image edit failed:', result.error);
+        alert(result.error || 'Failed to edit image. Please try again.');
+      }
+    } catch (error) {
+      console.error('Image edit error:', error);
+      alert('An error occurred while editing the image.');
+    } finally {
+      setIsEditingImage(false);
+    }
   };
 
   return (
@@ -244,7 +275,7 @@ export function SelectChannelsImage({
             }}
           >
             <ImageWithFallback
-              src={imageUrl || 'https://images.unsplash.com/photo-1579779866825-b598bf3ab783?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080'}
+              src={currentImageUrl || 'https://images.unsplash.com/photo-1579779866825-b598bf3ab783?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080'}
               alt="Selected Design"
               style={{
                 width: '100%',
@@ -253,6 +284,42 @@ export function SelectChannelsImage({
               }}
             />
           </div>
+
+          {/* Edit Image Button */}
+          <button
+            onClick={() => setShowEditPopup(true)}
+            style={{
+              marginTop: '12px',
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #F8F6FF 0%, #EDE9FE 100%)',
+              border: '1px solid #E9D5FF',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#8366FF',
+              fontFamily: 'Outfit, sans-serif',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #8366FF 0%, #A78BFA 100%)';
+              e.currentTarget.style.color = '#FFFFFF';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(131, 102, 255, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #F8F6FF 0%, #EDE9FE 100%)';
+              e.currentTarget.style.color = '#8366FF';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <Pencil size={16} />
+            Edit Image
+          </button>
         </div>
 
         {/* AI Caption Generation Card */}
@@ -917,6 +984,16 @@ export function SelectChannelsImage({
             </div>
           </div>
         </>
+      )}
+
+      {/* Image Edit Popup */}
+      {showEditPopup && (
+        <ImageEditPopup
+          imageUrl={currentImageUrl}
+          onClose={() => setShowEditPopup(false)}
+          onApply={handleEditImage}
+          isProcessing={isEditingImage}
+        />
       )}
     </div>
   );

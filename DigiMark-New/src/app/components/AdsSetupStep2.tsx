@@ -184,9 +184,8 @@ export function AdsSetupStep2({ onNavigate }: AdsSetupStep2Props) {
                   height: '6px',
                   borderRadius: '3px',
                   outline: 'none',
-                  background: `linear-gradient(to right, #8366FF 0%, #8366FF ${
-                    ((dailyBudget - minBudget) / (maxBudget - minBudget)) * 100
-                  }%, #F3F4F6 ${((dailyBudget - minBudget) / (maxBudget - minBudget)) * 100}%, #F3F4F6 100%)`,
+                  background: `linear-gradient(to right, #8366FF 0%, #8366FF ${((dailyBudget - minBudget) / (maxBudget - minBudget)) * 100
+                    }%, #F3F4F6 ${((dailyBudget - minBudget) / (maxBudget - minBudget)) * 100}%, #F3F4F6 100%)`,
                   WebkitAppearance: 'none',
                   appearance: 'none',
                   cursor: 'pointer'
@@ -279,9 +278,8 @@ export function AdsSetupStep2({ onNavigate }: AdsSetupStep2Props) {
                   height: '6px',
                   borderRadius: '3px',
                   outline: 'none',
-                  background: `linear-gradient(to right, #8366FF 0%, #8366FF ${
-                    ((duration - minDuration) / (maxDuration - minDuration)) * 100
-                  }%, #F3F4F6 ${((duration - minDuration) / (maxDuration - minDuration)) * 100}%, #F3F4F6 100%)`,
+                  background: `linear-gradient(to right, #8366FF 0%, #8366FF ${((duration - minDuration) / (maxDuration - minDuration)) * 100
+                    }%, #F3F4F6 ${((duration - minDuration) / (maxDuration - minDuration)) * 100}%, #F3F4F6 100%)`,
                   WebkitAppearance: 'none',
                   appearance: 'none',
                   cursor: 'pointer'
@@ -358,7 +356,15 @@ export function AdsSetupStep2({ onNavigate }: AdsSetupStep2Props) {
         }}
       >
         <button
-          onClick={() => onNavigate('ads-setup-step3')}
+          onClick={() => {
+            // Load existing draft and update with budget/duration
+            const existingDraft = localStorage.getItem('adsCampaignDraft');
+            const draftData = existingDraft ? JSON.parse(existingDraft) : {};
+            draftData.dailyBudget = dailyBudget;
+            draftData.duration = duration;
+            localStorage.setItem('adsCampaignDraft', JSON.stringify(draftData));
+            onNavigate('ads-setup-step3');
+          }}
           style={{
             width: '100%',
             padding: '16px',

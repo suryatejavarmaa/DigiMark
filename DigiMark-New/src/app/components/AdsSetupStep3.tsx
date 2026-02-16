@@ -1,22 +1,122 @@
-import { ArrowLeft, Target, Users, DollarSign, Calendar, CheckSquare, Square } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Target, Users, DollarSign, Calendar, CheckSquare, Square, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { saveCampaign, generateCampaignStrategy } from '../../services/AdsService';
 
 interface AdsSetupStep3Props {
   onNavigate: (screen: string) => void;
+  userId?: string | null;
 }
 
-export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
+export function AdsSetupStep3({ onNavigate, userId }: AdsSetupStep3Props) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [campaignData, setCampaignData] = useState<any>(null);
 
-  const summaryData = {
-    objective: 'Lead Generation',
-    targetAudience: 'Small Business Owners',
-    platform: 'Facebook',
-    dailyBudget: '$50',
-    duration: '7 Days',
-    totalBudget: '$350',
-    estimatedReach: '70,000'
+  // Load campaign data from localStorage (set by previous steps)
+  useEffect(() => {
+    const storedData = localStorage.getItem('adsCampaignDraft');
+    if (storedData) {
+      setCampaignData(JSON.parse(storedData));
+    } else {
+      // Default data if nothing stored
+      setCampaignData({
+        objective: 'leads',
+        audience: 'Small Business Owners',
+        platform: 'facebook',
+        dailyBudget: 50,
+        duration: 7
+      });
+    }
+  }, []);
+
+  const handleSaveCampaign = async () => {
+    if (!agreedToTerms || !userId || !campaignData) return;
+
+    setSaving(true);
+    try {
+      // Generate AI strategy
+      const strategyResult = await generateCampaignStrategy({
+        objective: campaignData.objective,
+        audience: campaignData.audience,
+        platform: campaignData.platform,
+        budget: { daily: campaignData.dailyBudget },
+        duration: `${campaignData.duration} days`
+      });
+
+      // Build campaign object
+      const campaign: any = {
+        name: `${campaignData.objective} Campaign`,
+        objective: campaignData.objective,
+        platform: campaignData.platform,
+        audience: campaignData.audience,
+        budget: {
+          daily: campaignData.dailyBudget,
+          total: campaignData.dailyBudget * campaignData.duration,
+          currency: 'USD'
+        },
+        schedule: {
+          startDate: new Date().toISOString(),
+          duration: `${campaignData.duration} days`
+        },
+        targeting: strategyResult.strategy?.targeting || {
+          ageRange: '25-54',
+          interests: ['business', 'marketing'],
+          behaviors: ['online shoppers']
+        },
+        adCopy: {
+          selectedVariation: 0,
+          variations: [
+            {
+              headline: strategyResult.strategy?.keyMessages?.[0] || 'Grow Your Business Today',
+              description: strategyResult.strategy?.overview || 'AI-powered marketing at your fingertips',
+              cta: 'Learn More'
+            }
+          ]
+        },
+        status: 'ready'
+      };
+
+      // Add strategy if available
+      if (strategyResult.strategy) {
+        campaign.strategy = strategyResult.strategy;
+      }
+
+      // Save to Firestore
+      const result = await saveCampaign(userId, campaign);
+
+      if (result.success) {
+        // Clear draft
+        localStorage.removeItem('adsCampaignDraft');
+        // Navigate to campaigns list
+        onNavigate('ads-campaigns-list');
+      } else {
+        console.error('Failed to save campaign:', result.error);
+        alert('Failed to save campaign. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving campaign:', error);
+      alert('Error saving campaign. Please try again.');
+    }
+    setSaving(false);
   };
+
+  if (!campaignData) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #FFFFFF 0%, #F8F6FF 100%)'
+      }}>
+        <Loader2 size={32} style={{ color: '#8366FF', animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  const totalBudget = campaignData.dailyBudget * campaignData.duration;
+  const estimatedReach = Math.floor(campaignData.dailyBudget * campaignData.duration * 200);
 
   return (
     <div
@@ -53,12 +153,6 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#F3F4F6';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#F9FAFB';
-          }}
         >
           <ArrowLeft size={20} style={{ color: '#000000' }} />
         </button>
@@ -72,7 +166,7 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
             marginRight: '40px'
           }}
         >
-          Setup Campaign
+          Review & Save
         </h1>
       </div>
 
@@ -121,8 +215,7 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
               height: '100%',
               width: '100%',
               background: 'linear-gradient(90deg, #8366FF 0%, #A78BFA 100%)',
-              borderRadius: '3px',
-              transition: 'width 0.3s'
+              borderRadius: '3px'
             }}
           />
         </div>
@@ -165,8 +258,8 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
               <Target size={20} style={{ color: '#8366FF' }} />
               <span style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280' }}>Objective</span>
             </div>
-            <p style={{ fontSize: '16px', fontWeight: 600, color: '#000000', paddingLeft: '30px' }}>
-              {summaryData.objective}
+            <p style={{ fontSize: '16px', fontWeight: 600, color: '#000000', paddingLeft: '30px', textTransform: 'capitalize' }}>
+              {campaignData.objective}
             </p>
           </div>
 
@@ -180,13 +273,13 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
               <div style={{ marginBottom: '8px' }}>
                 <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '2px' }}>Target Audience</p>
                 <p style={{ fontSize: '15px', fontWeight: 600, color: '#000000' }}>
-                  {summaryData.targetAudience}
+                  {campaignData.audience}
                 </p>
               </div>
               <div>
                 <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '2px' }}>Platform</p>
-                <p style={{ fontSize: '15px', fontWeight: 600, color: '#000000' }}>
-                  {summaryData.platform}
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#000000', textTransform: 'capitalize' }}>
+                  {campaignData.platform}
                 </p>
               </div>
             </div>
@@ -202,13 +295,13 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '14px', color: '#6B7280' }}>Daily Budget</span>
                 <span style={{ fontSize: '15px', fontWeight: 600, color: '#000000' }}>
-                  {summaryData.dailyBudget}
+                  ${campaignData.dailyBudget}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '14px', color: '#6B7280' }}>Duration</span>
                 <span style={{ fontSize: '15px', fontWeight: 600, color: '#000000' }}>
-                  {summaryData.duration}
+                  {campaignData.duration} Days
                 </span>
               </div>
               <div
@@ -231,14 +324,14 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
                     backgroundClip: 'text'
                   }}
                 >
-                  {summaryData.totalBudget}
+                  ${totalBudget}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Estimated Reach Highlight */}
+        {/* Estimated Reach */}
         <div
           style={{
             background: 'linear-gradient(135deg, #EDE9FE 0%, #F3E8FF 100%)',
@@ -251,7 +344,7 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', fontWeight: 600, color: '#6B7280' }}>Estimated Reach</span>
             <span style={{ fontSize: '20px', fontWeight: 800, color: '#8366FF' }}>
-              {summaryData.estimatedReach}
+              {estimatedReach.toLocaleString()}
             </span>
           </div>
         </div>
@@ -267,14 +360,7 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
             border: 'none',
             cursor: 'pointer',
             padding: '12px',
-            borderRadius: '8px',
-            transition: 'background 0.2s'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#F9FAFB';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
+            borderRadius: '8px'
           }}
         >
           {agreedToTerms ? (
@@ -282,29 +368,8 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
           ) : (
             <Square size={24} style={{ color: '#9CA3AF' }} />
           )}
-          <span
-            style={{
-              fontSize: '14px',
-              color: '#000000',
-              fontFamily: 'Outfit, sans-serif',
-              textAlign: 'left'
-            }}
-          >
-            I agree to{' '}
-            <span
-              style={{
-                color: '#8366FF',
-                fontWeight: 600,
-                textDecoration: 'underline',
-                cursor: 'pointer'
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                alert('Advertising Terms & Conditions');
-              }}
-            >
-              Advertising Terms
-            </span>
+          <span style={{ fontSize: '14px', color: '#000000', fontFamily: 'Outfit, sans-serif', textAlign: 'left' }}>
+            I agree to the <span style={{ color: '#8366FF', fontWeight: 600 }}>Advertising Terms</span>
           </span>
         </button>
       </div>
@@ -319,38 +384,37 @@ export function AdsSetupStep3({ onNavigate }: AdsSetupStep3Props) {
         }}
       >
         <button
-          onClick={() => agreedToTerms && onNavigate('execution-setup-info')}
-          disabled={!agreedToTerms}
+          onClick={handleSaveCampaign}
+          disabled={!agreedToTerms || saving}
           style={{
             width: '100%',
             padding: '16px',
             borderRadius: '12px',
-            background: agreedToTerms
+            background: agreedToTerms && !saving
               ? 'linear-gradient(135deg, #8366FF 0%, #A78BFA 100%)'
               : '#E5E7EB',
             border: 'none',
             fontSize: '16px',
             fontWeight: 600,
             color: '#FFFFFF',
-            cursor: agreedToTerms ? 'pointer' : 'not-allowed',
-            boxShadow: agreedToTerms ? '0 8px 24px rgba(131, 102, 255, 0.4)' : 'none',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={(e) => {
-            if (agreedToTerms) {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 12px 32px rgba(131, 102, 255, 0.5)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (agreedToTerms) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(131, 102, 255, 0.4)';
-            }
+            cursor: agreedToTerms && !saving ? 'pointer' : 'not-allowed',
+            boxShadow: agreedToTerms && !saving ? '0 8px 24px rgba(131, 102, 255, 0.4)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
         >
-          Continue to Execution
+          {saving ? (
+            <>
+              <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+              Saving Campaign...
+            </>
+          ) : (
+            'Save & View Campaigns'
+          )}
         </button>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   );

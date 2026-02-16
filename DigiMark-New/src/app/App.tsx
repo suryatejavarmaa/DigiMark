@@ -59,6 +59,11 @@ import { CampaignReady } from './components/CampaignReady';
 import { NotificationsPage } from './components/NotificationsPage';
 import { PageTransition } from './components/PageTransition';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { AdsCampaignsList } from './components/AdsCampaignsList';
+import { AdsAnalyticsDashboard } from './components/AdsAnalyticsDashboard';
+import { AdsExportGuide } from './components/AdsExportGuide';
+import { ContentRemix } from './components/ContentRemix';
+import type { AdsCampaign } from '../types/ads';
 
 export default function App() {
   // Navigation state
@@ -100,8 +105,14 @@ export default function App() {
   const [scheduleTime, setScheduleTime] = useState<string>('');
   const [isScheduling, setIsScheduling] = useState(false);
 
+  // Ads campaign state
+  const [selectedAdsCampaign, setSelectedAdsCampaign] = useState<AdsCampaign | null>(null);
+
   // Content type state to track flow (text vs image)
   const [contentType, setContentType] = useState<'text' | 'image'>('text');
+
+  // Flow source to track where user came from (for proper back navigation)
+  const [flowSource, setFlowSource] = useState<string>('');
 
   // Firebase Auth listener - Auto-login on page reload
   useEffect(() => {
@@ -421,6 +432,8 @@ export default function App() {
     setPosterDescription(prompt);
     setPosterStyle(style);
     setPosterRatio(ratio);
+    setGeneratedImages([]); // Clear old images so loading state shows on cards
+    setGeneratedPrompts([]);
     setIsGeneratingImages(true);
     setCurrentScreen('generating-images');
 
@@ -616,8 +629,14 @@ export default function App() {
         );
       case 'preview-post':
         return <PreviewPost
-          onNavigate={setCurrentScreen}
-          backScreen={generatedImages.length > 0 ? 'select-channels-image' : 'select-channels'}
+          onNavigate={(screen) => {
+            // Clear flowSource when navigating away
+            if (screen !== 'publishing-animation') {
+              setFlowSource('');
+            }
+            setCurrentScreen(screen);
+          }}
+          backScreen={flowSource === 'content-remix' ? 'content-remix' : (generatedImages.length > 0 ? 'select-channels-image' : 'select-channels')}
         />;
       case 'publishing-animation':
         return <PublishingAnimation selectedPlatforms={selectedPlatforms} onNavigate={setCurrentScreen} />;
@@ -627,15 +646,17 @@ export default function App() {
         return <PublishingFailed onNavigate={setCurrentScreen} />;
       case 'schedule-picker':
         // Determine the correct back screen based on context
+        // If coming from content-remix, go back there
         // If editing from edit-scheduled-post or detail-preview, go back to that screen
         // Otherwise, go back to select-channels based on content type
         const schedulePickerBackScreen =
-          returnScreen === 'edit-scheduled-post-image' ? 'edit-scheduled-post-image'
-            : returnScreen === 'edit-scheduled-post-text' ? 'edit-scheduled-post-text'
-              : returnScreen === 'detail-preview-image' ? 'detail-preview-image'
-                : returnScreen === 'detail-preview-text' ? 'detail-preview-text'
-                  : contentType === 'image' ? 'select-channels-image'
-                    : 'select-channels';
+          flowSource === 'content-remix' ? 'content-remix'
+            : returnScreen === 'edit-scheduled-post-image' ? 'edit-scheduled-post-image'
+              : returnScreen === 'edit-scheduled-post-text' ? 'edit-scheduled-post-text'
+                : returnScreen === 'detail-preview-image' ? 'detail-preview-image'
+                  : returnScreen === 'detail-preview-text' ? 'detail-preview-text'
+                    : contentType === 'image' ? 'select-channels-image'
+                      : 'select-channels';
 
         return <SchedulePicker
           onNavigate={setCurrentScreen}
@@ -824,7 +845,52 @@ export default function App() {
       case 'ads-setup-step2':
         return <AdsSetupStep2 onNavigate={setCurrentScreen} />;
       case 'ads-setup-step3':
-        return <AdsSetupStep3 onNavigate={setCurrentScreen} />;
+        return <AdsSetupStep3 onNavigate={setCurrentScreen} userId={userId} />;
+      case 'ads-campaigns-list':
+        return <AdsCampaignsList
+          onNavigate={(screen, data) => {
+            if (data?.campaign) setSelectedAdsCampaign(data.campaign);
+            setCurrentScreen(screen);
+          }}
+          userId={userId || ''}
+        />;
+      case 'ads-analytics':
+        return selectedAdsCampaign ? (
+          <AdsAnalyticsDashboard
+            onNavigate={setCurrentScreen}
+            userId={userId || ''}
+            campaign={selectedAdsCampaign}
+          />
+        ) : <AdsCampaignsList onNavigate={(screen, data) => {
+          if (data?.campaign) setSelectedAdsCampaign(data.campaign);
+          setCurrentScreen(screen);
+        }} userId={userId || ''} />;
+      case 'ads-export':
+        return selectedAdsCampaign ? (
+          <AdsExportGuide
+            onNavigate={setCurrentScreen}
+            userId={userId || ''}
+            campaign={selectedAdsCampaign}
+          />
+        ) : <AdsCampaignsList onNavigate={(screen, data) => {
+          if (data?.campaign) setSelectedAdsCampaign(data.campaign);
+          setCurrentScreen(screen);
+        }} userId={userId || ''} />;
+      case 'content-remix':
+        return <ContentRemix
+          onNavigate={(screen) => {
+            if (screen === 'schedule-picker') {
+              setReturnScreen('schedule-preview');
+            }
+            if (screen === 'preview-post' || screen === 'schedule-picker') {
+              setFlowSource('content-remix');
+            }
+            setCurrentScreen(screen);
+          }}
+          userId={userId}
+          companyName={userProfile?.businessName}
+          companySummary={userProfile?.businessDescription}
+        />;
       case 'coming-soon-brand-awareness':
         return <ComingSoon onNavigate={setCurrentScreen} title="Brand Awareness" />;
       case 'coming-soon-lead-generation':

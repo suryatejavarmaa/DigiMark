@@ -60,6 +60,7 @@ export class SchedulerService {
                 const postData = post.data;
 
                 console.log(`[Scheduler] Publishing post ${postId} for user ${postData.userId}`);
+                console.log(`[Scheduler] Post data - mediaUrl: ${postData.mediaUrl ? postData.mediaUrl.substring(0, 100) + '...' : 'NULL'}`);
 
                 try {
                     // Call the publish function

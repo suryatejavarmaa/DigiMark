@@ -156,6 +156,8 @@ export function Dashboard({ onNavigate, userName, companyName, userId }: Dashboa
                       onNavigate('social-post-creation');
                     } else if (action.id === 'business-poster') {
                       onNavigate('create-business-poster');
+                    } else if (action.id === 'content-remix') {
+                      onNavigate('content-remix');
                     }
                   }}
                   style={{

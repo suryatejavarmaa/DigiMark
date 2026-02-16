@@ -33,32 +33,45 @@ export function PublishingAnimation({ selectedPlatforms: propPlatforms, onNaviga
   useEffect(() => {
     // Actually publish to backend
     const publishToPlatforms = async () => {
-      const results: { platform: string; success: boolean; postUrl?: string; shareUrl?: string; error?: string }[] = [];
+      // Cache media URL BEFORE publishing
+      const cachedMediaUrl = imageUrl || localStorage.getItem('publishImageUrl') || undefined;
+      console.log('[PublishingAnimation] Cached mediaUrl for all platforms:', cachedMediaUrl ? cachedMediaUrl.substring(0, 80) + '...' : 'NULL');
 
-      for (let i = 0; i < platforms.length; i++) {
-        const platform = platforms[i];
-        setPlatformStatuses(prev => ({ ...prev, [platform]: 'publishing' }));
+      try {
+        // Map 'x' to 'twitter' for API
+        const apiPlatforms = platforms.map(p => p === 'x' ? 'twitter' : p);
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
-        try {
-          // Map 'x' to 'twitter' for API
+        // Set all platforms to publishing status
+        const initialStatuses: { [key: string]: 'pending' | 'publishing' | 'success' | 'failed' } = {};
+        platforms.forEach(p => {
+          initialStatuses[p] = 'publishing';
+        });
+        setPlatformStatuses(initialStatuses);
+
+        console.log(`[PublishingAnimation] Publishing to ALL platforms at once:`, platforms);
+
+        // Call /publish ONCE with ALL platforms
+        const response = await fetch(`${API_BASE}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId || localStorage.getItem('digimark_user_id'),
+            platforms: apiPlatforms, // Send all platforms at once
+            content: caption,
+            mediaUrl: cachedMediaUrl,
+            postType: cachedMediaUrl ? 'image' : 'text'
+          })
+        });
+
+        const data = await response.json();
+        console.log('[PublishingAnimation] Response:', data);
+
+        // Process results for each platform
+        const results: { platform: string; success: boolean; postUrl?: string; shareUrl?: string; error?: string }[] = [];
+
+        platforms.forEach(platform => {
           const apiPlatform = platform === 'x' ? 'twitter' : platform;
-          const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-
-          const response = await fetch(`${API_BASE}/publish`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: userId || localStorage.getItem('digimark_user_id'),
-              platforms: [apiPlatform], // Backend expects array
-              content: caption, // Backend expects 'content' not 'caption'
-              mediaUrl: imageUrl || localStorage.getItem('publishImageUrl') || undefined,
-              postType: imageUrl ? 'image' : 'text' // Backend expects 'postType' not 'type'
-            })
-          });
-
-          const data = await response.json();
-
-          // Backend returns results object with platform keys
           const platformResult = data.results?.[apiPlatform];
           const success = platformResult?.status === 'success';
           const postUrl = platformResult?.url;
@@ -79,86 +92,94 @@ export function PublishingAnimation({ selectedPlatforms: propPlatforms, onNaviga
           if (success && postUrl) {
             localStorage.setItem(`postUrl_${platform}`, postUrl);
           }
+        });
 
-          // Small delay between platforms
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error(`Failed to publish to ${platform}:`, error);
-          results.push({ platform, success: false });
-          setPlatformStatuses(prev => ({ ...prev, [platform]: 'failed' }));
-        }
-      }
+        setPublishResults(results);
 
-      setPublishResults(results);
+        // Store results for success/failed page
+        localStorage.setItem('publishResults', JSON.stringify(results));
 
-      // Store results for success/failed page
-      localStorage.setItem('publishResults', JSON.stringify(results));
+        // Navigate based on results
+        const allSuccess = results.every(r => r.success);
+        const anySuccess = results.some(r => r.success);
 
-      // Navigate based on results
-      const allSuccess = results.every(r => r.success);
-      const anySuccess = results.some(r => r.success);
+        // Save to livePosts collection for Calendar display (only if at least one platform succeeded)
+        if (anySuccess) {
+          try {
+            const db = getFirestore();
+            const effectiveUserId = userId || localStorage.getItem('digimark_user_id');
+            const mediaUrl = imageUrl || localStorage.getItem('publishImageUrl') || null;
 
-      // Save to livePosts collection for Calendar display (only if at least one platform succeeded)
-      if (anySuccess) {
-        try {
-          const db = getFirestore();
-          const effectiveUserId = userId || localStorage.getItem('digimark_user_id');
-          const mediaUrl = imageUrl || localStorage.getItem('publishImageUrl') || null;
+            // Don't save base64 images to Firestore (too large, >1MB limit)
+            // Only save if it's a regular URL (Firebase Storage, Pollinations, etc.)
+            const safeImageUrl = mediaUrl && !mediaUrl.startsWith('data:image/') ? mediaUrl : null;
 
-          // Extract URLs for each platform from results
-          const linkedInResult = results.find(r => r.platform === 'linkedin' && r.success);
-          const twitterResult = results.find(r => (r.platform === 'twitter' || r.platform === 'x') && r.success);
-          const facebookResult = results.find(r => r.platform === 'facebook' && r.success);
+            // Extract URLs for each platform from results
+            const linkedInResult = results.find(r => r.platform === 'linkedin' && r.success);
+            const twitterResult = results.find(r => (r.platform === 'twitter' || r.platform === 'x') && r.success);
+            const facebookResult = results.find(r => r.platform === 'facebook' && r.success);
 
-          await addDoc(collection(db, 'livePosts'), {
-            userId: effectiveUserId,
-            title: caption.substring(0, 50) + (caption.length > 50 ? '...' : ''),
-            caption: caption,
-            platforms: platforms,
-            publishedAt: new Date().toISOString(),
-            linkedInUrl: linkedInResult?.postUrl || null,
-            twitterUrl: twitterResult?.postUrl || null,
-            facebookUrl: facebookResult?.postUrl || null,
-            imageUrl: mediaUrl,
-            type: mediaUrl ? 'image' : 'text'
-          });
-          console.log('[Publishing] Saved to livePosts collection');
-        } catch (saveError) {
-          console.error('[Publishing] Failed to save to livePosts:', saveError);
-        }
-      }
-
-      // Delete scheduled post if it was a "Post Now" action
-      const scheduledPostId = localStorage.getItem('scheduledPostId');
-      if (scheduledPostId && allSuccess) {
-        try {
-          const API_BASE_DEL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-          const response = await fetch(`${API_BASE_DEL}/deleteScheduledPost`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: userId || localStorage.getItem('digimark_user_id'),
-              postId: scheduledPostId
-            })
-          });
-
-          if (response.ok) {
-            console.log('[Publishing] Deleted scheduled post:', scheduledPostId);
-            localStorage.removeItem('scheduledPostId');
+            await addDoc(collection(db, 'livePosts'), {
+              userId: effectiveUserId,
+              title: caption.substring(0, 50) + (caption.length > 50 ? '...' : ''),
+              caption: caption,
+              platforms: platforms,
+              publishedAt: new Date().toISOString(),
+              linkedInUrl: linkedInResult?.postUrl || null,
+              twitterUrl: twitterResult?.postUrl || null,
+              facebookUrl: facebookResult?.postUrl || null,
+              imageUrl: safeImageUrl,
+              type: mediaUrl ? 'image' : 'text',
+              hasImage: !!mediaUrl // Track that post had image even if we couldn't save URL
+            });
+            console.log('[Publishing] Saved to livePosts collection');
+          } catch (saveError) {
+            console.error('[Publishing] Failed to save to livePosts:', saveError);
           }
-        } catch (error) {
-          console.error('[Publishing] Failed to delete scheduled post:', error);
         }
-      }
 
-      setTimeout(() => {
-        if (allSuccess) {
-          onNavigate('publishing-success');
-        } else {
-          // If any failed, go to failed page as requested
-          onNavigate('publishing-failed');
+        // Delete scheduled post if it was a "Post Now" action
+        const scheduledPostId = localStorage.getItem('scheduledPostId');
+        if (scheduledPostId && allSuccess) {
+          try {
+            const API_BASE_DEL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+            const response = await fetch(`${API_BASE_DEL}/deleteScheduledPost`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: userId || localStorage.getItem('digimark_user_id'),
+                postId: scheduledPostId
+              })
+            });
+
+            if (response.ok) {
+              console.log('[Publishing] Deleted scheduled post:', scheduledPostId);
+              localStorage.removeItem('scheduledPostId');
+            }
+          } catch (error) {
+            console.error('[Publishing] Failed to delete scheduled post:', error);
+          }
         }
-      }, 800);
+
+        setTimeout(() => {
+          if (allSuccess) {
+            onNavigate('publishing-success');
+          } else {
+            // If any failed, go to failed page as requested
+            onNavigate('publishing-failed');
+          }
+        }, 800);
+      } catch (error) {
+        console.error('[PublishingAnimation] Publishing failed:', error);
+        // Set all platforms to failed
+        const failedStatuses: { [key: string]: 'failed' } = {};
+        platforms.forEach((p: string) => {
+          failedStatuses[p] = 'failed';
+        });
+        setPlatformStatuses(failedStatuses);
+        // Navigate to failed page
+        setTimeout(() => onNavigate('publishing-failed'), 800);
+      }
     };
 
     publishToPlatforms();

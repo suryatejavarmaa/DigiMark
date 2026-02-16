@@ -14,10 +14,10 @@ export function GeneratingImages({ onNavigate }: GeneratingImagesProps) {
       setRotation((prev) => (prev + 2) % 360);
     }, 16);
 
-    // Auto-navigate to generated images after 4 seconds
+    // Navigate to image cards page after 3 seconds (images continue loading there)
     const timer = setTimeout(() => {
       onNavigate('generated-images');
-    }, 4000);
+    }, 3000);
 
     return () => {
       clearInterval(animationInterval);

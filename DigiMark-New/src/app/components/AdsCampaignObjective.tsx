@@ -1,4 +1,4 @@
-import { ArrowLeft, Target, Users, MousePointer, Check, Zap, House, Megaphone, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Target, Users, MousePointer, Check, Zap, House, Megaphone, Calendar, User, FolderOpen } from 'lucide-react';
 
 interface AdsCampaignObjectiveProps {
   onNavigate: (screen: string) => void;
@@ -204,6 +204,45 @@ export function AdsCampaignObjective({ onNavigate }: AdsCampaignObjectiveProps) 
             );
           })}
         </div>
+
+        {/* My Campaigns Button */}
+        <button
+          onClick={() => onNavigate('ads-campaigns-list')}
+          style={{
+            width: '100%',
+            padding: '16px 20px',
+            background: 'linear-gradient(135deg, #8366FF 0%, #A78BFA 100%)',
+            border: 'none',
+            borderRadius: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(131, 102, 255, 0.3)',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(131, 102, 255, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 16px rgba(131, 102, 255, 0.3)';
+          }}
+        >
+          <FolderOpen size={22} style={{ color: '#FFFFFF' }} />
+          <span
+            style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#FFFFFF',
+              fontFamily: 'Outfit, sans-serif'
+            }}
+          >
+            My Campaigns
+          </span>
+        </button>
       </div>
 
       {/* Bottom Navigation */}
@@ -240,7 +279,7 @@ export function AdsCampaignObjective({ onNavigate }: AdsCampaignObjectiveProps) 
           }}
         >
           <House size={24} style={{ color: '#9CA3AF' }} />
-          <span 
+          <span
             style={{
               fontSize: '12px',
               fontWeight: 600,
@@ -279,7 +318,7 @@ export function AdsCampaignObjective({ onNavigate }: AdsCampaignObjectiveProps) 
             }}
           />
           <Megaphone size={24} style={{ color: '#8366FF' }} />
-          <span 
+          <span
             style={{
               fontSize: '12px',
               fontWeight: 600,
@@ -306,7 +345,7 @@ export function AdsCampaignObjective({ onNavigate }: AdsCampaignObjectiveProps) 
           }}
         >
           <Calendar size={24} style={{ color: '#9CA3AF' }} />
-          <span 
+          <span
             style={{
               fontSize: '12px',
               fontWeight: 600,
@@ -333,7 +372,7 @@ export function AdsCampaignObjective({ onNavigate }: AdsCampaignObjectiveProps) 
           }}
         >
           <User size={24} style={{ color: '#9CA3AF' }} />
-          <span 
+          <span
             style={{
               fontSize: '12px',
               fontWeight: 600,

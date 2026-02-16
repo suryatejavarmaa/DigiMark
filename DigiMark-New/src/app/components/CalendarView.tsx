@@ -1120,73 +1120,16 @@ export function CalendarView({ onNavigate, userId }: CalendarViewProps) {
                     <button
                       onClick={async () => {
                         try {
-                          setPublishingPostId(post.id); // Set loading state
+                          // Store post data in localStorage for PublishingAnimation to use
+                          localStorage.setItem('selectedPlatforms', JSON.stringify(post.platforms));
+                          localStorage.setItem('publishCaption', post.content || '');
+                          localStorage.setItem('publishImageUrl', post.mediaUrl || '');
+                          localStorage.setItem('scheduledPostId', post.id); // For deletion after publish
 
-                          const content = post.content || '';
-                          const mediaUrl = post.mediaUrl || null;
-
-                          console.log('[Post Now] Found post:', post);
-                          console.log('[Post Now] Sending data:', {
-                            userId,
-                            platforms: post.platforms,
-                            content,
-                            mediaUrl,
-                            postType: post.type
-                          });
-
-                          const response = await fetch(`${API_BASE_URL}/publish`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              userId: userId,
-                              platforms: post.platforms,
-                              content: content,
-                              mediaUrl: mediaUrl,
-                              postType: post.type || 'imageGen'
-                            })
-                          });
-
-                          const result = await response.json();
-                          console.log('[Post Now] Response:', result);
-                          console.log('[Post Now] Full results object:', JSON.stringify(result.results, null, 2));
-
-                          if (response.ok && result.success) {
-                            // Get published URLs (check both 'x' and 'twitter' for Twitter/X posts)
-                            const linkedInUrl = result.results?.linkedin?.url;
-                            const twitterUrl = result.results?.x?.url || result.results?.twitter?.url;
-
-                            console.log('[Post Now] LinkedIn result:', result.results?.linkedin);
-                            console.log('[Post Now] X/Twitter result:', result.results?.x || result.results?.twitter);
-                            console.log('[Post Now] Extracted URLs:', { linkedInUrl, twitterUrl });
-
-                            // Save to livePosts collection
-                            const db = getFirestore();
-                            await addDoc(collection(db, 'livePosts'), {
-                              userId: userId,
-                              title: post.title || content.substring(0, 50) + '...',
-                              content: content,
-                              mediaUrl: mediaUrl,
-                              platforms: post.platforms,
-                              publishedAt: new Date().toISOString(),
-                              linkedInUrl: linkedInUrl || null,
-                              twitterUrl: twitterUrl || null,
-                              type: post.type || 'text'
-                            });
-
-                            // Delete from scheduled posts
-                            await deleteDoc(doc(db, 'scheduledPosts', post.id));
-
-                            // Refresh both lists
-                            fetchScheduledPosts();
-                            fetchLivePosts();
-                          } else {
-                            throw new Error(result.error || 'Failed to post');
-                          }
+                          // Navigate to publishing animation which has the fix for Twitter images
+                          onNavigate('publishing-animation');
                         } catch (error: any) {
                           console.error('[Post Now] Error:', error);
-                          // Don't show alert, just log error
-                        } finally {
-                          setPublishingPostId(null); // Clear loading state
                         }
                       }}
                       disabled={publishingPostId === post.id}

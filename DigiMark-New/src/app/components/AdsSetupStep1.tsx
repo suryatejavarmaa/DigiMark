@@ -19,27 +19,27 @@ export function AdsSetupStep1({ onNavigate }: AdsSetupStep1Props) {
   ];
 
   const platforms = [
-    { 
-      id: 'linkedin', 
-      name: 'LinkedIn', 
+    {
+      id: 'linkedin',
+      name: 'LinkedIn',
       color: '#0A66C2',
       icon: Linkedin
     },
-    { 
-      id: 'twitter', 
-      name: 'Twitter', 
+    {
+      id: 'twitter',
+      name: 'Twitter',
       color: '#000000',
       icon: null // We'll use a custom X (Twitter) icon
     },
-    { 
-      id: 'google', 
-      name: 'Google Ads', 
+    {
+      id: 'google',
+      name: 'Google Ads',
       color: '#4285F4',
       icon: null // We'll use a custom Google icon
     },
-    { 
-      id: 'facebook', 
-      name: 'Facebook', 
+    {
+      id: 'facebook',
+      name: 'Facebook',
       color: '#1877F2',
       icon: Facebook
     }
@@ -364,12 +364,12 @@ export function AdsSetupStep1({ onNavigate }: AdsSetupStep1Props) {
                         />
                       </svg>
                     ) : platform.icon ? (
-                      <platform.icon 
-                        size={24} 
-                        style={{ 
+                      <platform.icon
+                        size={24}
+                        style={{
                           color: isSelected ? '#FFFFFF' : platform.color,
                           fill: isSelected ? '#FFFFFF' : platform.color
-                        }} 
+                        }}
                       />
                     ) : null}
                   </div>
@@ -399,7 +399,20 @@ export function AdsSetupStep1({ onNavigate }: AdsSetupStep1Props) {
         }}
       >
         <button
-          onClick={() => canProceed && onNavigate('ads-setup-step2')}
+          onClick={() => {
+            if (canProceed) {
+              // Save to localStorage for next steps
+              const draftData = {
+                audience: targetAudience,
+                platform: selectedPlatform,
+                objective: 'leads', // Default objective
+                dailyBudget: 50,    // Default, will be overwritten in step 2
+                duration: 7         // Default, will be overwritten in step 2
+              };
+              localStorage.setItem('adsCampaignDraft', JSON.stringify(draftData));
+              onNavigate('ads-setup-step2');
+            }
+          }}
           disabled={!canProceed}
           style={{
             width: '100%',

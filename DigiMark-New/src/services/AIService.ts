@@ -159,5 +159,48 @@ export const AIService = {
                 'Team Milestone'
             ];
         }
+    },
+
+    /**
+     * Edit/modify an existing image using AI (img2img)
+     */
+    editImage: async (
+        imageData: string,
+        editPrompt: string,
+        userId?: string | null
+    ): Promise<{ modifiedImage: string; success: boolean; error?: string }> => {
+        try {
+            const response = await fetch(`${API_BASE}/edit-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: userId,
+                    imageData: imageData,
+                    editPrompt: editPrompt
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                return {
+                    modifiedImage: '',
+                    success: false,
+                    error: data.error || 'Failed to edit image'
+                };
+            }
+
+            return {
+                modifiedImage: data.modifiedImage,
+                success: true
+            };
+        } catch (error) {
+            console.error("AI Image Edit Error:", error);
+            return {
+                modifiedImage: '',
+                success: false,
+                error: (error as Error).message || 'Network error while editing image'
+            };
+        }
     }
 };

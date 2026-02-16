@@ -4,24 +4,36 @@ import puppeteer from 'puppeteer';
 import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { SchedulerService } from './schedulerService.js';
+import { generateCampaignStrategy, generateAdCopy, generateExportGuide } from './adsStrategyService.js';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+// Get directory name for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from parent directory
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/uploads', express.static('public/uploads')); // Serve uploaded images
+
 
 // Initialize Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCP441OctDxPAIS9rSwRCJ7bxmJaktVS58",
     authDomain: "digimark-ce146.firebaseapp.com",
     projectId: "digimark-ce146",
+    storageBucket: "digimark-ce146.appspot.com",
     messagingSenderId: "305387226790",
     appId: "1:305387226790:web:a9a4a406253d50c4ce1667",
     measurementId: "G-ENN3N6ZHGJ"
@@ -163,6 +175,134 @@ function generateTwitterOAuth1Signature(method, url, params, consumerKey, consum
 
 // Initialize Groq client
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// --- API: CREATE COMPANY SUMMARY (for onboarding) ---
+app.post('/api/create-company-summary', async (req, res) => {
+    try {
+        const { userId, businessName, businessType, websiteUrl, brandVoice, visualStyle } = req.body;
+
+        console.log(`[Company Summary] Creating summary for ${businessName} (user: ${userId})`);
+
+        if (!userId || !businessName) {
+            return res.status(400).json({ error: 'Missing userId or businessName' });
+        }
+
+        let pageContent = '';
+        let originalContentLength = 0;
+
+        // If website URL provided, scrape the content using Puppeteer
+        if (websiteUrl && websiteUrl.startsWith('http')) {
+            console.log(`[Company Summary] Scraping website: ${websiteUrl}`);
+            try {
+                const browser = await puppeteer.launch({
+                    headless: 'new',
+                    args: ['--no-sandbox', '--disable-setuid-sandbox']
+                });
+                const page = await browser.newPage();
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+                await page.goto(websiteUrl, {
+                    waitUntil: 'networkidle2',
+                    timeout: 30000
+                });
+
+                // Extract text content from the page
+                pageContent = await page.evaluate(() => {
+                    // Remove script and style elements
+                    const scripts = document.querySelectorAll('script, style, noscript, iframe');
+                    scripts.forEach(el => el.remove());
+
+                    // Get text content
+                    return document.body.innerText || document.body.textContent || '';
+                });
+
+                await browser.close();
+
+                originalContentLength = pageContent.length;
+                console.log(`[Company Summary] Scraped ${originalContentLength} characters from website`);
+
+                // Truncate if too long (Groq has token limits)
+                if (pageContent.length > 10000) {
+                    pageContent = pageContent.substring(0, 10000) + '...';
+                }
+            } catch (scrapeError) {
+                console.error('[Company Summary] Scraping failed:', scrapeError.message);
+                // Continue without scraped content
+            }
+        }
+
+        // Generate detailed summary using Groq
+        const prompt = pageContent
+            ? `You are a brand strategist and business analyst. Analyze the following website content and create a comprehensive company summary:
+
+**Company Name:** ${businessName}
+**Business Type:** ${businessType || 'Business'}
+**Website:** ${websiteUrl || 'N/A'}
+
+**Website Content:**
+${pageContent}
+
+Create a detailed summary in markdown format with these sections:
+## ${businessName}: Concise Summary
+
+**Overview:** (2-3 sentences about what the company does)
+
+**Key Services:** (bullet points of main services/products)
+
+**Key Takeaways:** (3-5 bullet points of important insights)
+
+**Actionable Insights:** (2-3 bullet points for marketing context)
+
+Keep the summary professional, informative, and suitable for AI-generated marketing content.`
+            : `You are a brand strategist. Create a company profile summary for:
+
+Company: ${businessName}
+Type: ${businessType || 'Business'}
+Website: ${websiteUrl || 'N/A'}
+Brand Voice: ${brandVoice || 'Professional'}
+Visual Style: ${visualStyle || 'Modern'}
+
+Create a concise but informative summary (2-3 paragraphs) that captures the essence of the brand.`;
+
+        const result = await groqClient.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.7,
+            max_tokens: pageContent ? 1500 : 500
+        });
+
+        const companySummary = result.choices[0]?.message?.content || `${businessName} is a ${businessType || 'business'} focused on delivering quality products and services.`;
+
+        console.log('[Company Summary] Generated:', companySummary.substring(0, 150) + '...');
+
+        // Save to Firestore - user profile (use setDoc with merge for new users)
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, {
+            businessDescription: companySummary,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        // Save to company_summaries collection with full details
+        const summaryRef = doc(db, 'company_summaries', userId);
+        await setDoc(summaryRef, {
+            userId,
+            businessName,
+            businessType,
+            url: websiteUrl || null,
+            originalContentLength: originalContentLength || 0,
+            summary: companySummary,
+            createdAt: serverTimestamp()
+        });
+
+        console.log('[Company Summary] ✅ Saved to Firestore (user profile + company_summaries)');
+
+        res.json({ success: true, summary: companySummary });
+
+    } catch (error) {
+        console.error('[Company Summary] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // --- API: GENERATE CAPTION TEMPLATES ---
 app.post('/api/generate-templates', async (req, res) => {
@@ -351,10 +491,214 @@ Return ONLY a JSON array of ${count} short strings (poster topics), no other tex
     }
 });
 
+// =====================================================
+// ADS CAMPAIGN API ENDPOINTS
+// These are MODULAR - designed for easy swap to real APIs later
+// =====================================================
+
+// --- API: GENERATE AD CAMPAIGN STRATEGY ---
+app.post('/api/ads/generate-strategy', async (req, res) => {
+    try {
+        const { objective, audience, platform, budget, duration, businessInfo } = req.body;
+
+        console.log(`[Ads Strategy] Generating strategy for ${platform} targeting ${audience}`);
+
+        const strategy = await generateCampaignStrategy({
+            objective,
+            audience,
+            platform,
+            budget,
+            duration,
+            businessInfo
+        });
+
+        res.json({ success: true, strategy });
+    } catch (error) {
+        console.error('[Ads Strategy] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: GENERATE AD COPY ---
+app.post('/api/ads/generate-copy', async (req, res) => {
+    try {
+        const { platform, objective, audience, productInfo, tone } = req.body;
+
+        console.log(`[Ads Copy] Generating ad copy for ${platform}`);
+
+        const adCopy = await generateAdCopy({
+            platform,
+            objective,
+            audience,
+            productInfo,
+            tone
+        });
+
+        res.json({ success: true, adCopy });
+    } catch (error) {
+        console.error('[Ads Copy] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: SAVE AD CAMPAIGN ---
+app.post('/api/ads/campaigns', async (req, res) => {
+    try {
+        const { userId, campaign } = req.body;
+
+        if (!userId || !campaign) {
+            return res.status(400).json({ error: 'Missing userId or campaign data' });
+        }
+
+        console.log(`[Ads Campaign] Saving campaign for user ${userId}`);
+
+        const campaignData = {
+            ...campaign,
+            userId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            status: campaign.status || 'draft'
+        };
+
+        const campaignsRef = collection(db, 'users', userId, 'adsCampaigns');
+        const docRef = await addDoc(campaignsRef, campaignData);
+
+        console.log(`[Ads Campaign] Saved with ID: ${docRef.id}`);
+
+        res.json({ success: true, campaignId: docRef.id });
+    } catch (error) {
+        console.error('[Ads Campaign] Save error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: GET USER'S AD CAMPAIGNS ---
+app.get('/api/ads/campaigns/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        console.log(`[Ads Campaign] Fetching campaigns for user ${userId}`);
+
+        const campaignsRef = collection(db, 'users', userId, 'adsCampaigns');
+        const q = query(campaignsRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+
+        const campaigns = [];
+        snapshot.forEach(doc => {
+            campaigns.push({ id: doc.id, ...doc.data() });
+        });
+
+        res.json({ success: true, campaigns });
+    } catch (error) {
+        console.error('[Ads Campaign] Fetch error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: GET SINGLE CAMPAIGN ---
+app.get('/api/ads/campaigns/:userId/:campaignId', async (req, res) => {
+    try {
+        const { userId, campaignId } = req.params;
+
+        console.log(`[Ads Campaign] Fetching campaign ${campaignId} for user ${userId}`);
+
+        const campaignRef = doc(db, 'users', userId, 'adsCampaigns', campaignId);
+        const campaignDoc = await getDoc(campaignRef);
+
+        if (!campaignDoc.exists()) {
+            return res.status(404).json({ error: 'Campaign not found' });
+        }
+
+        res.json({ success: true, campaign: { id: campaignDoc.id, ...campaignDoc.data() } });
+    } catch (error) {
+        console.error('[Ads Campaign] Fetch error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: UPDATE CAMPAIGN ---
+app.put('/api/ads/campaigns/:userId/:campaignId', async (req, res) => {
+    try {
+        const { userId, campaignId } = req.params;
+        const updates = req.body;
+
+        console.log(`[Ads Campaign] Updating campaign ${campaignId}`);
+
+        const campaignRef = doc(db, 'users', userId, 'adsCampaigns', campaignId);
+        await updateDoc(campaignRef, {
+            ...updates,
+            updatedAt: serverTimestamp()
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[Ads Campaign] Update error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: DELETE CAMPAIGN ---
+app.delete('/api/ads/campaigns/:userId/:campaignId', async (req, res) => {
+    try {
+        const { userId, campaignId } = req.params;
+
+        console.log(`[Ads Campaign] Deleting campaign ${campaignId}`);
+
+        const campaignRef = doc(db, 'users', userId, 'adsCampaigns', campaignId);
+        await deleteDoc(campaignRef);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[Ads Campaign] Delete error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: GET EXPORT GUIDE FOR PLATFORM ---
+app.post('/api/ads/export-guide', async (req, res) => {
+    try {
+        const { platform, campaign } = req.body;
+
+        console.log(`[Ads Export] Generating export guide for ${platform}`);
+
+        const guide = generateExportGuide(platform, campaign);
+
+        res.json({ success: true, guide });
+    } catch (error) {
+        console.error('[Ads Export] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- API: SAVE CAMPAIGN ANALYTICS (Manual Entry) ---
+app.post('/api/ads/analytics/:userId/:campaignId', async (req, res) => {
+    try {
+        const { userId, campaignId } = req.params;
+        const { metrics } = req.body;
+
+        console.log(`[Ads Analytics] Saving metrics for campaign ${campaignId}`);
+
+        const analyticsRef = doc(db, 'users', userId, 'adsCampaigns', campaignId);
+        await updateDoc(analyticsRef, {
+            analytics: metrics,
+            analyticsUpdatedAt: serverTimestamp()
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[Ads Analytics] Save error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// END OF ADS CAMPAIGN API ENDPOINTS
+// =====================================================
+
 // --- ENDPOINT 5: PUBLISH CONTENT ---
 app.post('/publish', async (req, res) => {
     try {
-        const { userId, platforms = [], content, mediaUrl, postType } = req.body;
+        const { userId, platforms = [], content, mediaUrl: originalMediaUrl, postType } = req.body;
 
         console.log(`[Publish] Request for user ${userId} to platforms:`, platforms);
 
@@ -362,13 +706,55 @@ app.post('/publish', async (req, res) => {
             return res.status(400).json({ error: 'Missing userId or platforms' });
         }
 
+        // Handle base64 images - save to local public folder
+        let mediaUrl = originalMediaUrl;
+        if (originalMediaUrl && originalMediaUrl.startsWith('data:image/')) {
+            try {
+                console.log('[Publish] Processing base64 image...');
+                const matches = originalMediaUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+                if (matches) {
+                    const extension = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+                    const base64Data = matches[2];
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+                    console.log(`[Publish] Base64 image size: ${imageBuffer.length} bytes`);
+
+                    // Save to local public folder
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const publicDir = path.join(process.cwd(), 'public', 'uploads');
+
+                    //Create directory if it doesn't exist
+                    if (!fs.existsSync(publicDir)) {
+                        fs.mkdirSync(publicDir, { recursive: true });
+                    }
+
+                    const filename = `${Date.now()}-${userId}.${extension}`;
+                    const filepath = path.join(publicDir, filename);
+                    fs.writeFileSync(filepath, imageBuffer);
+
+                    // Return public URL (use localhost for proper fetch)
+                    mediaUrl = `http://localhost:5001/uploads/${filename}`;
+                    console.log(`[Publish] ✅ Image saved locally: ${mediaUrl}`);
+                }
+            } catch (imgError) {
+                console.error('[Publish] Image upload failed:', imgError.message);
+                // Continue without image if upload fails
+                mediaUrl = null;
+            }
+        }
+
         const results = {};
         const cleanedContent = content ? content.replace(/\[.*?\]/g, '').trim() : '';
+
+        console.log(`[Publish] Final mediaUrl for platforms: ${mediaUrl ? mediaUrl.substring(0, 80) + '...' : 'NULL/EMPTY'}`);
 
         // Process each platform
         for (const p of platforms) {
             try {
                 let optimizedCaption = cleanedContent;
+                let shareUrl = null;
+                let action = null;
 
                 if (p === 'twitter') {
                     optimizedCaption = optimizeCaptionForTwitter(cleanedContent);
@@ -390,48 +776,63 @@ app.post('/publish', async (req, res) => {
                         let media_id_string = null;
 
                         // Step 1: Upload media ONLY if provided (optional for text-only tweets)
+                        console.log('[Publish][Twitter] mediaUrl value:', mediaUrl ? mediaUrl.substring(0, 100) : 'NULL/EMPTY');
                         if (mediaUrl) {
                             console.log('[Publish][Twitter] Step 1: Uploading media with OAuth 1.0a...');
+                            console.log('[Publish][Twitter] Fetching image from:', mediaUrl);
 
-                            const imageResponse = await fetch(mediaUrl);
-                            const imageBuffer = await imageResponse.arrayBuffer();
-                            const base64Image = Buffer.from(imageBuffer).toString('base64');
+                            try {
+                                const imageResponse = await fetch(mediaUrl);
+                                console.log('[Publish][Twitter] Image fetch status:', imageResponse.status);
 
-                            // Generate OAuth 1.0a signature
-                            const mediaUploadUrl = 'https://upload.twitter.com/1.1/media/upload.json';
-                            const mediaParams = { media_data: base64Image };
+                                if (!imageResponse.ok) {
+                                    throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+                                }
 
-                            const authHeader = generateTwitterOAuth1Signature(
-                                'POST',
-                                mediaUploadUrl,
-                                mediaParams,
-                                process.env.TWITTER_CLIENT_ID,
-                                process.env.TWITTER_CLIENT_SECRET,
-                                tokenData.access_token,
-                                tokenData.access_token_secret || ''
-                            );
+                                const imageBuffer = await imageResponse.arrayBuffer();
+                                console.log('[Publish][Twitter] Image buffer size:', imageBuffer.byteLength);
+                                const base64Image = Buffer.from(imageBuffer).toString('base64');
+                                console.log('[Publish][Twitter] Base64 size:', base64Image.length);
 
-                            const mediaUploadResponse = await fetch(mediaUploadUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Authorization': authHeader,
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                },
-                                body: new URLSearchParams(mediaParams)
-                            });
+                                // Generate OAuth 1.0a signature
+                                const mediaUploadUrl = 'https://upload.twitter.com/1.1/media/upload.json';
+                                const mediaParams = { media_data: base64Image };
 
-                            console.log('[Publish][Twitter] Media upload response status:', mediaUploadResponse.status);
+                                const authHeader = generateTwitterOAuth1Signature(
+                                    'POST',
+                                    mediaUploadUrl,
+                                    mediaParams,
+                                    process.env.TWITTER_CLIENT_ID,
+                                    process.env.TWITTER_CLIENT_SECRET,
+                                    tokenData.access_token,
+                                    tokenData.access_token_secret || ''
+                                );
 
-                            if (!mediaUploadResponse.ok) {
-                                const errorText = await mediaUploadResponse.text();
-                                console.error('[Publish][Twitter] Media upload FAILED - Status:', mediaUploadResponse.status);
-                                console.error('[Publish][Twitter] Error body:', errorText);
-                                throw new Error(`Twitter media upload failed: ${mediaUploadResponse.status}`);
+                                const mediaUploadResponse = await fetch(mediaUploadUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': authHeader,
+                                        'Content-Type': 'application/x-www-form-urlencoded'
+                                    },
+                                    body: new URLSearchParams(mediaParams)
+                                });
+
+                                console.log('[Publish][Twitter] Media upload response status:', mediaUploadResponse.status);
+
+                                if (!mediaUploadResponse.ok) {
+                                    const errorText = await mediaUploadResponse.text();
+                                    console.error('[Publish][Twitter] Media upload FAILED - Status:', mediaUploadResponse.status);
+                                    console.error('[Publish][Twitter] Error body:', errorText);
+                                    throw new Error(`Twitter media upload failed: ${mediaUploadResponse.status}`);
+                                }
+
+                                const mediaData = await mediaUploadResponse.json();
+                                media_id_string = mediaData.media_id_string;
+                                console.log('[Publish][Twitter] ✅ Media uploaded:', media_id_string);
+                            } catch (fetchError) {
+                                console.error('[Publish][Twitter] Image fetch/upload failed:', fetchError.message);
+                                throw fetchError; // Re-throw to outer catch
                             }
-
-                            const mediaData = await mediaUploadResponse.json();
-                            media_id_string = mediaData.media_id_string;
-                            console.log('[Publish][Twitter] ✅ Media uploaded:', media_id_string);
                         } else {
                             console.log('[Publish][Twitter] No media - posting text-only tweet');
                         }
@@ -504,6 +905,7 @@ app.post('/publish', async (req, res) => {
                     // Try LinkedIn AUTO-POST with Image Upload API
                     try {
                         console.log('[Publish][LinkedIn] Attempting auto-post...');
+                        console.log('[Publish][LinkedIn] mediaUrl:', mediaUrl ? mediaUrl.substring(0, 80) + '...' : 'NULL/EMPTY');
 
                         // Fetch LinkedIn tokens from Firestore
                         const tokensRef = doc(db, 'users', userId, 'tokens', 'linkedin');
@@ -899,33 +1301,53 @@ app.post('/schedule-post', async (req, res) => {
             });
         }
 
-        // 2. Download and save image to Firebase Storage (if from Pollinations)
+        // 2. Handle image URLs - save to local folder if needed
         let finalMediaUrl = mediaUrl;
-        if (mediaUrl && mediaUrl.includes('pollinations.ai')) {
+
+        // Handle base64 data URLs (from Gemini) - save to local storage
+        if (mediaUrl && mediaUrl.startsWith('data:image/')) {
             try {
-                console.log('[Schedule] Downloading image from Pollinations...');
-                const imageResponse = await fetch(mediaUrl);
+                console.log('[Schedule] Processing base64 image...');
 
-                if (!imageResponse.ok) {
-                    throw new Error(`Failed to download image: ${imageResponse.status}`);
+                // Extract base64 data and mime type
+                const matches = mediaUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+                if (matches) {
+                    const extension = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+                    const base64Data = matches[2];
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+                    console.log(`[Schedule] Base64 image size: ${imageBuffer.length} bytes`);
+
+                    // Save to local public folder
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const publicDir = path.join(process.cwd(), 'public', 'uploads');
+
+                    // Create directory if it doesn't exist
+                    if (!fs.existsSync(publicDir)) {
+                        fs.mkdirSync(publicDir, { recursive: true });
+                    }
+
+                    const filename = `${Date.now()}-${userId}.${extension}`;
+                    const filepath = path.join(publicDir, filename);
+                    fs.writeFileSync(filepath, imageBuffer);
+
+                    // Return public URL (use localhost for proper fetch)
+                    finalMediaUrl = `http://localhost:5001/uploads/${filename}`;
+                    console.log(`[Schedule] ✅ Image saved locally: ${finalMediaUrl}`);
+                } else {
+                    console.error('[Schedule] Invalid base64 format, skipping image');
+                    finalMediaUrl = null;
                 }
-
-                const imageBuffer = await imageResponse.arrayBuffer();
-                console.log(`[Schedule] Downloaded ${imageBuffer.byteLength} bytes`);
-
-                // Upload to Firebase Storage
-                const filename = `scheduled/${userId}/${Date.now()}.jpg`;
-                const storageRef = ref(storage, filename);
-                await uploadBytes(storageRef, Buffer.from(imageBuffer));
-                const firebaseUrl = await getDownloadURL(storageRef);
-
-                console.log(`[Schedule] ✅ Saved to Firebase Storage: ${filename}`);
-                finalMediaUrl = firebaseUrl;
-
             } catch (imageError) {
-                console.error('[Schedule] Image upload failed, using original URL:', imageError);
-                // Fall back to original URL if Firebase upload fails
+                console.error('[Schedule] Image upload failed:', imageError.message);
+                finalMediaUrl = null;
             }
+        }
+        // Pollinations URLs can be used directly - no need to download
+        else if (mediaUrl && mediaUrl.includes('pollinations.ai')) {
+            console.log('[Schedule] Using Pollinations URL directly');
+            finalMediaUrl = mediaUrl;
         }
 
         // 3. Create scheduled post document
@@ -993,6 +1415,30 @@ app.put('/update-scheduled-post', async (req, res) => {
     } catch (error) {
         console.error('[Update Schedule] Error:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to update scheduled post' });
+    }
+});
+
+// --- ENDPOINT 8: DELETE SCHEDULED POST ---
+app.post('/deleteScheduledPost', async (req, res) => {
+    const { userId, postId } = req.body;
+
+    console.log(`[Delete Schedule] Deleting post ${postId} for user ${userId}`);
+
+    try {
+        if (!postId || !userId) {
+            return res.status(400).json({ success: false, error: 'Post ID and User ID are required' });
+        }
+
+        // Delete the scheduled post from Firestore
+        const postRef = doc(db, 'scheduledPosts', postId);
+        await deleteDoc(postRef);
+
+        console.log(`[Delete Schedule] ✅ Post ${postId} deleted successfully`);
+
+        res.json({ success: true, message: 'Scheduled post deleted successfully' });
+    } catch (error) {
+        console.error('[Delete Schedule] Error:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to delete scheduled post' });
     }
 });
 
@@ -1296,44 +1742,46 @@ app.post('/generate-image', async (req, res) => {
 - Colors: "harmonious colors", "professional palette", "well-coordinated", "visually appealing"`;
             }
 
-            const promptInstruction = `You are an expert image prompt engineer. Transform this user request into 3 DETAILED professional image generation prompts.
+            const promptInstruction = `You are an expert creative director and image prompt engineer. Transform this request into 3 COMPLETELY VISUALLY DIFFERENT professional image prompts.
 
 USER REQUEST: "${userPrompt}"
-Company: ${companyContext || "a business"}
+COMPANY NAME & CONTEXT: ${companyContext || "a modern business"}
 SELECTED STYLE: ${style || 'Modern Professional'}
 
 ${styleGuidance}
 
-CRITICAL RULES - READ CAREFULLY:
-1. ALL 3 prompts MUST be about the EXACT SAME SUBJECT from user request
-2. If user says "Sankranti poster with logo" - ALL 3 must be Sankranti posters with logo
-3. DO NOT change the theme, subject, or purpose across variations
-4. ONLY vary: camera angle, composition layout, lighting mood
-5. Use style-specific terms from above for "${style}"
+🎯 YOUR MISSION: Create 3 prompts that would result in COMPLETELY DIFFERENT looking images!
 
-CORRECT EXAMPLE:
-User: "Create Sankranti poster for Bristle Tech with logo"
-✅ Prompt 1: "Happy Sankranti festival poster, Bristle Tech logo prominently centered, traditional diyas, warm orange glow, shot on Canon EOS R5, centered composition, photorealistic"
-✅ Prompt 2: "Happy Sankranti festival poster, Bristle Tech logo prominently displayed, traditional diyas, festive lights, shot on Canon EOS R5, diagonal dynamic angle, photorealistic"
-✅ Prompt 3: "Happy Sankranti festival poster, Bristle Tech logo prominently featured, traditional diyas closeup, vibrant colors, shot on Canon EOS R5, intimate framing, photorealistic"
-(ALL about Sankranti poster with logo, just different angles/compositions)
+VARIATION REQUIREMENTS (MAKE THEM LOOK TOTALLY DIFFERENT):
 
-WRONG EXAMPLE:
-❌ Prompt 1: "Sankranti poster with logo"
-❌ Prompt 2: "Tech company branding" (WRONG - different subject!)
-❌ Prompt 3: "Abstract celebration" (WRONG - different subject!)
+VARIATION 1 - BRIGHT & ENERGETIC:
+- Color scheme: Vibrant, bright, warm colors (orange, yellow, gold)
+- Mood: Celebratory, uplifting, festive, joyful
+- Composition: Wide shot, full scene, busy with elements
+- Visual elements: Multiple decorative elements, patterns, textures
 
-YOUR TASK:
-Extract the CORE REQUEST: What does the user want? (subject, theme, elements)
-Keep that SAME for all 3 prompts
-Only change: composition angle, lighting style, framing
+VARIATION 2 - MODERN & MINIMALIST:
+- Color scheme: Cool tones, blue, white, silver, gradient backgrounds
+- Mood: Professional, sleek, futuristic, clean
+- Composition: Centered, lots of white/negative space
+- Visual elements: Simple, geometric shapes, modern typography space
 
-VARIATIONS TO CHANGE:
-Variation 1: Front-facing, centered, balanced composition, warm/soft lighting
-Variation 2: 45-degree angle, dynamic diagonal, dramatic high-contrast lighting
-Variation 3: Close-up detail shot, shallow focus, intimate/artistic lighting
+VARIATION 3 - PREMIUM & LUXURIOUS:
+- Color scheme: Deep rich colors (purple, black, gold accents)
+- Mood: Elegant, sophisticated, exclusive, high-end
+- Composition: Dramatic lighting, artistic shadows
+- Visual elements: Premium textures, metallic effects, luxury feel
 
-Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
+CRITICAL: Each prompt must still include the SAME core subject/theme from user request!
+But make them look VISUALLY DISTINCT through colors, mood, and style.
+
+INCLUDE IN EACH PROMPT:
+- The company/brand name from context
+- The main theme/occasion from user request
+- Style-specific terms from "${style}"
+- Detailed visual description (colors, lighting, composition)
+
+FORMAT: Write exactly 3 prompts, one per line. No numbering. Each 50-100 words.`;
 
             const groqResult = await callGroqWithRetry(promptInstruction);
             console.log("🔍 Groq returned:", groqResult);
@@ -1450,41 +1898,119 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
                 }
             };
 
-            const generateWithPollinations = (prompt, index) => {
-                console.log("[Pollinations] Generating fallback...");
-                // Use original user prompt + variation index for seed
-                // Keep it simple - no width/height to avoid triggering flux model
-                const seed = 1000 + index;
-                const simplePrompt = userPrompt.substring(0, 80).replace(/[^a-zA-Z0-9 ]/g, '').trim();
-                console.log(`[Pollinations] Prompt: "${simplePrompt}" seed: ${seed}`);
-                const encodedPrompt = encodeURIComponent(simplePrompt);
-                // Simple URL - nologo and seed only (no width/height to avoid flux model)
-                return `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${seed}&model=turbo`;
+            // 🥇 GOOGLE GEMINI IMAGE - Primary image API (PAID - High Quality!)
+            const generateWithGeminiImage = async (prompt, index) => {
+                const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+                if (!GEMINI_API_KEY) {
+                    throw new Error("No Gemini API Key found");
+                }
+
+                console.log(`[Gemini Image] Generating variation ${index + 1}...`);
+
+                try {
+                    // Use Gemini 2.0 Flash Exp - tested and working!
+                    const model = 'gemini-2.0-flash-exp';
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `Generate a high-quality, professional image: ${prompt.substring(0, 1000)}`
+                                }]
+                            }],
+                            generationConfig: {
+                                responseModalities: ["TEXT", "IMAGE"]  // Must include both for this model
+                            }
+                        }),
+                        signal: AbortSignal.timeout(60000) // 60 second timeout
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Gemini Image API Error: ${response.status} - ${errorText}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Extract image from response
+                    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                        const parts = data.candidates[0].content.parts;
+                        for (const part of parts) {
+                            if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+                                const base64Image = part.inlineData.data;
+                                const mimeType = part.inlineData.mimeType;
+                                console.log(`[Gemini Image] ✅ Variation ${index + 1} generated successfully`);
+                                return `data:${mimeType};base64,${base64Image}`;
+                            }
+                        }
+                    }
+
+                    throw new Error('No image found in Gemini response');
+                } catch (error) {
+                    console.error(`[Gemini Image] Failed for variation ${index + 1}:`, error.message);
+                    throw error;
+                }
             };
 
-            // Run generations in parallel with triple-fallback: Segmind → Pollinations → HF
-            const imagePromises = expandedPrompts.map(async (prompt, i) => {
-                // 🥇 Try Segmind first (fast: 2-10 seconds)
-                try {
-                    return await generateWithSegmind(prompt, i);
-                } catch (segmindError) {
-                    console.warn(`[Fallback Chain] Segmind failed for index ${i}:`, segmindError.message);
+            const generateWithPollinations = async (prompt, index) => {
+                console.log(`[Pollinations] Generating variation ${index + 1}...`);
 
-                    // 🥈 Fallback to Pollinations (instant, always works)
+                try {
+                    // Simple Pollinations URL - works without authentication
+                    // Just return the URL, browser will load it on-demand
+                    const seed = Date.now() + index * 1000; // Unique seed per image
+                    const cleanPrompt = prompt.substring(0, 500); // Limit prompt length
+                    const encodedPrompt = encodeURIComponent(cleanPrompt);
+
+                    // Use default model (no model param) - images generated on-demand when loaded
+                    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true`;
+
+                    console.log(`[Pollinations] ✅ Variation ${index + 1} URL ready`);
+                    return imageUrl;
+                } catch (error) {
+                    console.error(`[Pollinations] Failed for variation ${index + 1}:`, error.message);
+                    throw error;
+                }
+            };
+
+            // Run generations in parallel with 4-level fallback: Gemini Image → Pollinations → Segmind → HuggingFace
+            const imagePromises = expandedPrompts.map(async (prompt, i) => {
+                // 🥇 Try GEMINI IMAGE first (500 free/day, fast, reliable)
+                try {
+                    return await generateWithGeminiImage(prompt, i);
+                } catch (geminiError) {
+                    console.warn(`[Fallback Chain] Gemini Image failed for index ${i}:`, geminiError.message);
+
+                    // 🥈 Fallback to Pollinations (free, no key needed)
                     try {
                         console.log(`[Fallback Chain] Trying Pollinations for index ${i}...`);
-                        return generateWithPollinations(prompt, i);
+                        return await generateWithPollinations(prompt, i);
                     } catch (pollinationsError) {
                         console.warn(`[Fallback Chain] Pollinations failed for index ${i}:`, pollinationsError.message);
 
-                        // 🥉 Final fallback to Hugging Face
+                        // 🥉 Fallback to Segmind (paid, reliable backup)
                         try {
-                            console.log(`[Fallback Chain] Trying Hugging Face as last resort for index ${i}...`);
-                            return await generateWithHF(prompt, i);
-                        } catch (hfError) {
-                            console.error(`[Fallback Chain] All methods failed for index ${i}. Using emergency Pollinations URL.`);
-                            // Emergency fallback - direct Pollinations URL
-                            return generateWithPollinations(prompt, i);
+                            console.log(`[Fallback Chain] Trying Segmind for index ${i}...`);
+                            return await generateWithSegmind(prompt, i);
+                        } catch (segmindError) {
+                            console.warn(`[Fallback Chain] Segmind failed for index ${i}:`, segmindError.message);
+
+                            // 4️⃣ Final fallback to Hugging Face
+                            try {
+                                console.log(`[Fallback Chain] Trying Hugging Face as last resort for index ${i}...`);
+                                return await generateWithHF(prompt, i);
+                            } catch (hfError) {
+                                console.error(`[Fallback Chain] All methods failed for index ${i}. Using emergency Pollinations URL.`);
+                                // Emergency fallback - direct Pollinations URL (just returns URL, always works)
+                                const seed = Date.now() + i * 1000;
+                                const encodedPrompt = encodeURIComponent(prompt.substring(0, 500));
+                                return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true`;
+                            }
                         }
                     }
                 }
@@ -1512,6 +2038,366 @@ Write 3 prompts about THE SAME SUBJECT. One per line. No numbering.`;
         res.status(500).json({ error: outerError.message });
     }
 
+});
+
+// --- ENDPOINT 3B: IMAGE EDITOR (img2img) ---
+app.post('/edit-image', async (req, res) => {
+    const { userId, imageData, editPrompt } = req.body;
+
+    if (!userId || !imageData || !editPrompt) {
+        return res.status(400).json({
+            error: 'UserId, imageData (base64 or URL), and editPrompt are required'
+        });
+    }
+
+    console.log(`[Image Edit] User: ${userId}, Prompt: "${editPrompt.substring(0, 50)}..."`);
+
+    try {
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY not found in environment");
+        }
+
+        // Handle different image input formats
+        let imageBase64 = imageData;
+        let mimeType = 'image/png';
+
+        // If it's a URL (including Pollinations), fetch and convert to base64
+        if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+            console.log('[Image Edit] Fetching image from URL...');
+            try {
+                const imageResponse = await fetch(imageData);
+                if (!imageResponse.ok) {
+                    throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+                }
+                const contentType = imageResponse.headers.get('content-type');
+                if (contentType && contentType.includes('image/')) {
+                    mimeType = contentType.split(';')[0];
+                }
+                const buffer = await imageResponse.arrayBuffer();
+                imageBase64 = Buffer.from(buffer).toString('base64');
+                console.log(`[Image Edit] Converted URL to base64 (${Math.round(imageBase64.length / 1024)}KB)`);
+            } catch (fetchError) {
+                console.error('[Image Edit] URL fetch failed:', fetchError.message);
+                throw new Error('Could not fetch image from URL');
+            }
+        } else if (imageData.startsWith('data:')) {
+            // Extract base64 from data URL
+            const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+                mimeType = matches[1];
+                imageBase64 = matches[2];
+            }
+        }
+
+        // Call Gemini with image + edit prompt
+        console.log('[Image Edit] Sending to Gemini for modification...');
+        const model = 'gemini-2.0-flash-exp';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: imageBase64
+                            }
+                        },
+                        {
+                            text: `Modify this image based on the following instruction. Keep the original style and composition as much as possible, only make the requested changes: ${editPrompt}`
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ["TEXT", "IMAGE"]
+                }
+            }),
+            signal: AbortSignal.timeout(90000) // 90 second timeout for img2img
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Image Edit] Gemini API Error:', errorText);
+            throw new Error(`Gemini API Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        let modifiedImage = null;
+        let responseText = null;
+
+        // Extract modified image from response
+        if (data.candidates && data.candidates[0]?.content?.parts) {
+            for (const part of data.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+                    modifiedImage = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    console.log(`[Image Edit] ✅ Modified image received (${Math.round(part.inlineData.data.length / 1024)}KB)`);
+                }
+                if (part.text) {
+                    responseText = part.text;
+                }
+            }
+        }
+
+        if (!modifiedImage) {
+            console.error('[Image Edit] No image in Gemini response');
+            if (responseText) {
+                console.log('[Image Edit] Text response instead:', responseText.substring(0, 200));
+            }
+            throw new Error('Gemini did not return a modified image. Try a different edit prompt.');
+        }
+
+        res.json({
+            success: true,
+            modifiedImage: modifiedImage,
+            message: 'Image modified successfully'
+        });
+
+    } catch (error) {
+        console.error('[Image Edit] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to edit image'
+        });
+    }
+});
+
+// --- ENDPOINT 3C: EXTRACT POST CONTENT (Content Remix) ---
+app.post('/extract-post-content', async (req, res) => {
+    const { postUrl, userId } = req.body;
+
+    if (!postUrl || !userId) {
+        return res.status(400).json({ error: 'postUrl and userId are required' });
+    }
+
+    console.log(`[Content Extract] User: ${userId}, URL: ${postUrl}`);
+
+    try {
+        // Detect platform from URL
+        let platform = 'unknown';
+        if (postUrl.includes('linkedin.com')) platform = 'linkedin';
+        else if (postUrl.includes('twitter.com') || postUrl.includes('x.com')) platform = 'twitter';
+        else if (postUrl.includes('facebook.com') || postUrl.includes('fb.com')) platform = 'facebook';
+        else if (postUrl.includes('instagram.com')) platform = 'instagram';
+
+        console.log(`[Content Extract] Detected platform: ${platform}`);
+
+        // Use Puppeteer to scrape the post content
+        const browser = await puppeteer.launch({ headless: "new" });
+        const page = await browser.newPage();
+
+        // Set user agent to avoid detection
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1920, height: 1080 });
+
+        await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+        // Wait a bit for dynamic content
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Extract content based on platform
+        let extractedData = { content: '', author: '', imageUrl: '' };
+
+        if (platform === 'linkedin') {
+            extractedData = await page.evaluate(() => {
+                // LinkedIn post selectors
+                const contentEl = document.querySelector('.feed-shared-text, .break-words, [data-test-id="main-feed-activity-card__commentary"]');
+                const authorEl = document.querySelector('.feed-shared-actor__name, .update-components-actor__name');
+                const imageEl = document.querySelector('.feed-shared-image img, .ivm-image-view-model img');
+
+                return {
+                    content: contentEl ? contentEl.innerText.trim() : '',
+                    author: authorEl ? authorEl.innerText.trim() : '',
+                    imageUrl: imageEl ? imageEl.src : ''
+                };
+            });
+        } else if (platform === 'twitter') {
+            extractedData = await page.evaluate(() => {
+                const contentEl = document.querySelector('[data-testid="tweetText"]');
+                const authorEl = document.querySelector('[data-testid="User-Name"]');
+                const imageEl = document.querySelector('[data-testid="tweetPhoto"] img');
+
+                return {
+                    content: contentEl ? contentEl.innerText.trim() : '',
+                    author: authorEl ? authorEl.innerText.split('\n')[0].trim() : '',
+                    imageUrl: imageEl ? imageEl.src : ''
+                };
+            });
+        } else if (platform === 'instagram') {
+            extractedData = await page.evaluate(() => {
+                const contentEl = document.querySelector('h1._ap3a, span._ap3a');
+                const authorEl = document.querySelector('header a');
+                const imageEl = document.querySelector('article img');
+
+                return {
+                    content: contentEl ? contentEl.innerText.trim() : '',
+                    author: authorEl ? authorEl.innerText.trim() : '',
+                    imageUrl: imageEl ? imageEl.src : ''
+                };
+            });
+        } else if (platform === 'facebook') {
+            extractedData = await page.evaluate(() => {
+                const contentEl = document.querySelector('[data-ad-preview="message"], .userContent');
+                const authorEl = document.querySelector('strong a, h2 a');
+                const imageEl = document.querySelector('[data-imgperflogname="feedhome_photo"] img');
+
+                return {
+                    content: contentEl ? contentEl.innerText.trim() : '',
+                    author: authorEl ? authorEl.innerText.trim() : '',
+                    imageUrl: imageEl ? imageEl.src : ''
+                };
+            });
+        }
+
+        // If scraping failed, try to get the full page text
+        if (!extractedData.content) {
+            const fullText = await page.evaluate(() => document.body.innerText);
+            extractedData.content = fullText.substring(0, 2000);
+        }
+
+        await browser.close();
+
+        // If still no content, use Groq to extract from page text
+        if (!extractedData.content || extractedData.content.length < 20) {
+            console.log('[Content Extract] Scraping failed, trying AI extraction...');
+
+            const aiPrompt = `Extract the main post content from this social media page text. Return ONLY the post content, nothing else:\n\n${extractedData.content || 'Unable to load content'}`;
+
+            try {
+                extractedData.content = await callGroqWithRetry(aiPrompt);
+            } catch (e) {
+                console.error('[Content Extract] AI extraction failed:', e.message);
+            }
+        }
+
+        console.log(`[Content Extract] ✅ Extracted ${extractedData.content.length} chars from ${platform}`);
+
+        res.json({
+            success: true,
+            platform,
+            content: extractedData.content,
+            author: extractedData.author,
+            imageUrl: extractedData.imageUrl,
+            originalUrl: postUrl
+        });
+
+    } catch (error) {
+        console.error('[Content Extract] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to extract content from URL'
+        });
+    }
+});
+
+// --- ENDPOINT 3D: REMIX CONTENT (Content Remix) ---
+app.post('/remix-content', async (req, res) => {
+    const { originalContent, sourcePlatform, targetPlatform, userId, companyName, companySummary } = req.body;
+
+    if (!originalContent || !targetPlatform || !userId) {
+        return res.status(400).json({
+            error: 'originalContent, targetPlatform, and userId are required'
+        });
+    }
+
+    console.log(`[Content Remix] ${sourcePlatform} → ${targetPlatform} for ${companyName || 'user'}`);
+
+    try {
+        // Platform-specific guidelines
+        const platformGuidelines = {
+            twitter: {
+                maxLength: 280,
+                style: 'Short, punchy, use 2-3 relevant hashtags at the end. Be conversational and direct.',
+                example: 'Keep it under 280 chars. Start with a hook. End with hashtags.'
+            },
+            linkedin: {
+                maxLength: 3000,
+                style: 'Professional, insightful, use 3-5 hashtags. Structure with line breaks. Start with a hook, provide value, end with a call-to-action.',
+                example: 'Professional tone. Can be longer. Use bullet points or line breaks for readability.'
+            },
+            instagram: {
+                maxLength: 2200,
+                style: 'Engaging, lifestyle-focused, use 10-15 hashtags at the very end. Be relatable and use emojis strategically.',
+                example: 'Start with attention grabber. Tell a story. Heavy on hashtags at the end.'
+            },
+            facebook: {
+                maxLength: 2000,
+                style: 'Conversational, community-focused, use 2-3 hashtags. Ask questions to encourage engagement.',
+                example: 'Friendly tone. Can include links. Ask for engagement.'
+            }
+        };
+
+        const target = platformGuidelines[targetPlatform?.toLowerCase()] || platformGuidelines.twitter;
+
+        // Build company context section
+        let companyContext = '';
+        if (companyName || companySummary) {
+            companyContext = `
+COMPANY CONTEXT:
+${companyName ? `Company Name: ${companyName}` : ''}
+${companySummary ? `Company Description: ${companySummary}` : ''}
+
+IMPORTANT: Adapt the content to sound like it's coming from ${companyName || 'this company'}. 
+- Use the company's voice and perspective
+- Make it relevant to what the company does
+- Keep the core message but frame it for the company's audience
+`;
+        }
+
+        const remixPrompt = `You are an expert social media content strategist. Rewrite this content for ${targetPlatform}.
+
+ORIGINAL CONTENT (from ${sourcePlatform || 'social media'}):
+"${originalContent}"
+${companyContext}
+TARGET PLATFORM: ${targetPlatform}
+MAX LENGTH: ${target.maxLength} characters
+STYLE GUIDELINES: ${target.style}
+
+RULES:
+1. ${companyName ? `Write as if you ARE ${companyName} - use "we", "our", first-person company voice` : 'Preserve the core message and value'}
+2. Adapt tone and format for ${targetPlatform} audience
+3. ${targetPlatform === 'twitter' ? 'MUST be under 280 characters including hashtags' : 'Optimize length for engagement'}
+4. Include appropriate hashtags for ${targetPlatform}
+5. Make it feel native to ${targetPlatform}, not like a copy-paste
+6. ${companyName ? `Reference the company's expertise or services subtly if relevant` : 'Add a call-to-action if appropriate'}
+
+Return ONLY the remixed content, nothing else.`;
+
+        const remixedContent = await callGroqWithRetry(remixPrompt);
+
+        // Clean up the response
+        let cleanContent = remixedContent
+            .trim()
+            .replace(/^["']|["']$/g, '') // Remove quotes
+            .replace(/^Here's.*?:\s*/i, '') // Remove preamble
+            .replace(/^Remixed.*?:\s*/i, '');
+
+        // Enforce character limit for Twitter
+        if (targetPlatform?.toLowerCase() === 'twitter' && cleanContent.length > 280) {
+            cleanContent = cleanContent.substring(0, 277) + '...';
+        }
+
+        console.log(`[Content Remix] ✅ Generated ${cleanContent.length} chars for ${targetPlatform}`);
+
+        res.json({
+            success: true,
+            remixedContent: cleanContent,
+            targetPlatform,
+            sourcePlatform,
+            charCount: cleanContent.length,
+            maxLength: target.maxLength
+        });
+
+    } catch (error) {
+        console.error('[Content Remix] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to remix content'
+        });
+    }
 });
 
 // --- ENDPOINT 4: OAUTH AUTHENTICATION ---
@@ -2251,7 +3137,7 @@ app.listen(PORT, '0.0.0.0', () => {
                                     process.env.TWITTER_CLIENT_ID,
                                     process.env.TWITTER_CLIENT_SECRET,
                                     access_token,
-                                    access_token_secret
+                                    access_token_secret || ''
                                 );
 
                                 console.log('[Scheduler][Twitter] Auth header generated:', mediaAuthHeader.substring(0, 50) + '...');
@@ -2295,7 +3181,7 @@ app.listen(PORT, '0.0.0.0', () => {
                                 process.env.TWITTER_CLIENT_ID,
                                 process.env.TWITTER_CLIENT_SECRET,
                                 access_token,
-                                access_token_secret
+                                access_token_secret || ''
                             );
 
                             const tweetResponse = await fetch(tweetUrl, {
